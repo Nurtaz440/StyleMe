@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#1A1A2E</color>
+    <color name="surface">#252540</color>
+    <color name="text_primary">#E8E8F0</color>
+    <color name="text_secondary">#9999AA</color>
+    <color name="white">#FFFFFF</color>
+    <style name="Theme.StyleMe" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">#A97DE0</item>
+        <item name="colorPrimaryDark">#7B4FBE</item>
+        <item name="colorAccent">#FF8C42</item>
+        <item name="android:windowBackground">#121212</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>

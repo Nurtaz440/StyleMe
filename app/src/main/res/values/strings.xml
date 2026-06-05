@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Style Me</string>
+    <string name="upload_photo">Upload Photo</string>
+    <string name="change_colour">Change Colour</string>
+    <string name="change_style">Change Style</string>
+    <string name="revert">Revert to Original</string>
+    <string name="settings">Settings</string>
+    <string name="home">Home</string>
+    <string name="colour">Colour</string>
+    <string name="style">Style</string>
+    <string name="loading">Loading…</string>
+    <string name="no_photo">Upload a photo first</string>
+    <string name="network_error">Network error. Check your connection or enable Demo Mode in Settings.</string>
+</resources>

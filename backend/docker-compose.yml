@@ -1,0 +1,116 @@
+version: "3.8"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  StyleMe – Backend Docker Compose
+#  Starts all services required for the Android app to connect to.
+#
+#  Usage:
+#    docker-compose up -d          # start all services in background
+#    docker-compose logs -f        # tail logs
+#    docker-compose down           # stop all services
+#    docker-compose down -v        # stop + delete database volume
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── MariaDB database ──────────────────────────────────────────────────────
+  db:
+    image: mariadb:10.9
+    container_name: styleme_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-styleme}
+      MYSQL_USER: ${DB_USER:-styleme_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-styleme_pass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - styleme_net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Adminer (DB UI) ───────────────────────────────────────────────────────
+  adminer:
+    image: adminer:latest
+    container_name: styleme_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - styleme_net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Users API (ASP.NET Core) ──────────────────────────────────────────────
+  users_api:
+    build:
+      context: ./users_api
+      dockerfile: Dockerfile
+    container_name: styleme_users_api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5000
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-styleme}
+      DB_USER: ${DB_USER:-styleme_user}
+      DB_PASSWORD: ${DB_PASSWORD:-styleme_pass}
+      JWT_SECRET: ${JWT_SECRET:-change_this_to_a_long_random_secret_key}
+      JWT_ISSUER: styleme
+      JWT_AUDIENCE: styleme_app
+    ports:
+      - "5000:5000"
+    networks:
+      - styleme_net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Pictures API (FastAPI + ML) ───────────────────────────────────────────
+  pictures_api:
+    build:
+      context: ./pictures_api
+      dockerfile: Dockerfile
+    container_name: styleme_pictures_api
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-styleme}
+      DB_USER: ${DB_USER:-styleme_user}
+      DB_PASSWORD: ${DB_PASSWORD:-styleme_pass}
+      USERS_API_URL: http://users_api:5000
+      PICTURES_DIR: /app/pictures
+      MODELS_DIR: /app/models
+    ports:
+      - "8000:8000"
+    volumes:
+      - pictures_data:/app/pictures
+      - models_data:/app/models
+    networks:
+      - styleme_net
+    depends_on:
+      db:
+        condition: service_healthy
+      users_api:
+        condition: service_started
+    # NOTE: First start is slow — ML models need to be downloaded / compiled.
+    # Run seed script after startup: docker exec styleme_pictures_api python init_models.py
+
+volumes:
+  db_data:
+  pictures_data:
+  models_data:
+
+networks:
+  styleme_net:
+    driver: bridge

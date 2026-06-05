@@ -1,0 +1,54 @@
+[
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/item_picture.xml",
+        "source": "com.styleme.app-main-71:/layout/item_picture.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/item_hair_style.xml",
+        "source": "com.styleme.app-main-71:/layout/item_hair_style.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/activity_main.xml",
+        "source": "com.styleme.app-main-71:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/fragment_settings.xml",
+        "source": "com.styleme.app-main-71:/layout/fragment_settings.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/fragment_hair_colours.xml",
+        "source": "com.styleme.app-main-71:/layout/fragment_hair_colours.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/fragment_home.xml",
+        "source": "com.styleme.app-main-71:/layout/fragment_home.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/fragment_hair_style.xml",
+        "source": "com.styleme.app-main-71:/layout/fragment_hair_style.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/fragment_hair_styles.xml",
+        "source": "com.styleme.app-main-71:/layout/fragment_hair_styles.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/item_model_picture.xml",
+        "source": "com.styleme.app-main-71:/layout/item_model_picture.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/item_hair_colour.xml",
+        "source": "com.styleme.app-main-71:/layout/item_hair_colour.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/fragment_hair_colour.xml",
+        "source": "com.styleme.app-main-71:/layout/fragment_hair_colour.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/fragment_camera.xml",
+        "source": "com.styleme.app-main-71:/layout/fragment_camera.xml"
+    },
+    {
+        "merged": "com.styleme.app-mergeDebugResources-68:/layout/fragment_result.xml",
+        "source": "com.styleme.app-main-71:/layout/fragment_result.xml"
+    }
+]

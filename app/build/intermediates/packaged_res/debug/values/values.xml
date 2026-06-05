@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#F5A623</color>
+    <color name="background">#0F3460</color>
+    <color name="black">#000000</color>
+    <color name="chip_selected">#E94560</color>
+    <color name="chip_unselected">#2A2A4A</color>
+    <color name="divider">#2A2A4A</color>
+    <color name="error">#CF6679</color>
+    <color name="on_background">#FFFFFF</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_secondary">#FFFFFF</color>
+    <color name="on_surface">#E0E0E0</color>
+    <color name="overlay">#99000000</color>
+    <color name="primary">#1A1A2E</color>
+    <color name="primary_variant">#16213E</color>
+    <color name="secondary">#E94560</color>
+    <color name="secondary_variant">#C73652</color>
+    <color name="success">#4CAF50</color>
+    <color name="surface">#1A1A2E</color>
+    <color name="surface_card">#16213E</color>
+    <color name="text_hint">#707090</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0B0C0</color>
+    <color name="transparent">#00000000</color>
+    <color name="white">#FFFFFF</color>
+    <dimen name="avatar_size">80dp</dimen>
+    <dimen name="bottom_nav_height">60dp</dimen>
+    <dimen name="button_corner_radius">12dp</dimen>
+    <dimen name="card_corner_radius">16dp</dimen>
+    <dimen name="colour_swatch_size">56dp</dimen>
+    <dimen name="margin_large">24dp</dimen>
+    <dimen name="margin_medium">16dp</dimen>
+    <dimen name="margin_small">8dp</dimen>
+    <dimen name="margin_xlarge">32dp</dimen>
+    <dimen name="style_card_height">180dp</dimen>
+    <string name="app_name">Style Me</string>
+    <string name="change_colour">Change Colour</string>
+    <string name="change_style">Change Style</string>
+    <string name="colour">Colour</string>
+    <string name="gcm_defaultSenderId" translatable="false">559057680946</string>
+    <string name="google_api_key" translatable="false">AIzaSyB3qsJe_NMhDuxoq5S9oGeJGKovLafdU4E</string>
+    <string name="google_app_id" translatable="false">1:559057680946:android:f25c31509040070e4d1a2b</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyB3qsJe_NMhDuxoq5S9oGeJGKovLafdU4E</string>
+    <string name="google_storage_bucket" translatable="false">styleme-f38f1.firebasestorage.app</string>
+    <string name="home">Home</string>
+    <string name="loading">Loading…</string>
+    <string name="network_error">Network error. Check your connection or enable Demo Mode in Settings.</string>
+    <string name="no_photo">Upload a photo first</string>
+    <string name="project_id" translatable="false">styleme-f38f1</string>
+    <string name="revert">Revert to Original</string>
+    <string name="settings">Settings</string>
+    <string name="style">Style</string>
+    <string name="upload_photo">Upload Photo</string>
+    <style name="ShapeAppearance.StyleMe.TextInput" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+    <style name="Theme.StyleMe" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_variant</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="colorSecondaryVariant">@color/secondary_variant</item>
+        <item name="colorOnSecondary">@color/on_secondary</item>
+        <item name="android:colorBackground">@color/background</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorError">@color/error</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/primary</item>
+        <item name="android:navigationBarColor">@color/primary</item>
+    </style>
+    <style name="Theme.StyleMe.Splash" parent="Theme.StyleMe">
+        <item name="android:windowFullscreen">true</item>
+    </style>
+    <style name="Widget.StyleMe.Button" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/secondary</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:letterSpacing">0.05</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="Widget.StyleMe.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/secondary</item>
+        <item name="android:textColor">@color/secondary</item>
+        <item name="cornerRadius">12dp</item>
+    </style>
+    <style name="Widget.StyleMe.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/secondary</item>
+        <item name="hintTextColor">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        <item name="boxStrokeWidth">1.5dp</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.StyleMe.TextInput</item>
+    </style>
+</resources>

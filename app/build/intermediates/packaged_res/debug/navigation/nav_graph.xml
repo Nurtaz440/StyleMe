@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.styleme.app.ui.home.HomeFragment"
+        android:label="Home"
+        android:layout="@layout/fragment_home" >
+        <action
+            android:id="@+id/action_home_to_hairColour"
+            app:destination="@id/hairColourFragment" />
+        <action
+            android:id="@+id/action_home_to_hairStyle"
+            app:destination="@id/hairStyleFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/hairColourFragment"
+        android:name="com.styleme.app.ui.haircolor.HairColourFragment"
+        android:label="Hair Colour"
+        android:layout="@layout/fragment_hair_colour" />
+
+    <fragment
+        android:id="@+id/hairStyleFragment"
+        android:name="com.styleme.app.ui.hairstyle.HairStyleFragment"
+        android:label="Hair Style"
+        android:layout="@layout/fragment_hair_style" />
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.styleme.app.ui.settings.SettingsFragment"
+        android:label="Settings"
+        android:layout="@layout/fragment_settings" />
+
+</navigation>

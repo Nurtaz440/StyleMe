@@ -1,0 +1,222 @@
+[
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-xxxhdpi_ic_launcher.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-xxxhdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_style.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_style.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-xxxhdpi_ic_launcher_round.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-xxxhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_fragment_hair_styles.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/fragment_hair_styles.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/navigation_nav_graph.xml.flat",
+        "source": "com.styleme.app-main-71:/navigation/nav_graph.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/color_bottom_nav_selector.xml.flat",
+        "source": "com.styleme.app-main-71:/color/bottom_nav_selector.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-hdpi_ic_launcher.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-hdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_item_hair_colour.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/item_hair_colour.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_scissors.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_scissors.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_item_picture.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/item_picture.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_camera.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_camera.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_gallery.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_gallery.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_logout.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_logout.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_palette.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_palette.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_settings.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_settings.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_history.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_history.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_fragment_home.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/fragment_home.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_face.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_face.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-mdpi_ic_launcher.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-mdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_fragment_result.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/fragment_result.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_fragment_hair_colours.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/fragment_hair_colours.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_bg_icon_button.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/bg_icon_button.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_search.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_search.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_item_model_picture.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/item_model_picture.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_check.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_check.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/menu_bottom_nav_menu.xml.flat",
+        "source": "com.styleme.app-main-71:/menu/bottom_nav_menu.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_bg_colour_swatch.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/bg_colour_swatch.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/xml_file_paths.xml.flat",
+        "source": "com.styleme.app-main-71:/xml/file_paths.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_bottom_nav_selector.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/bottom_nav_selector.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_person.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_person.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_add_photo.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_add_photo.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_save.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_save.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_back.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_back.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-xxhdpi_ic_launcher.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-xxhdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_share.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_share.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_lock.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_lock.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_bg_photo_placeholder.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/bg_photo_placeholder.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/color_nav_item_color.xml.flat",
+        "source": "com.styleme.app-main-71:/color/nav_item_color.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_rounded_swatch.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/rounded_swatch.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_fragment_hair_colour.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/fragment_hair_colour.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/raw_loading.json.flat",
+        "source": "com.styleme.app-main-71:/raw/loading.json"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_fragment_camera.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/fragment_camera.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-mdpi_ic_launcher_round.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-mdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_fragment_settings.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/fragment_settings.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-hdpi_ic_launcher_round.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-hdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_fragment_hair_style.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/fragment_hair_style.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_email.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_email.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_arrow_right.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_arrow_right.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_activity_main.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_upload.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_upload.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-xxhdpi_ic_launcher_round.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-xxhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/drawable_ic_home.xml.flat",
+        "source": "com.styleme.app-main-71:/drawable/ic_home.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-xhdpi_ic_launcher_round.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-xhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/layout_item_hair_style.xml.flat",
+        "source": "com.styleme.app-main-71:/layout/item_hair_style.xml"
+    },
+    {
+        "merged": "com.styleme.app-merged_res-69:/mipmap-xhdpi_ic_launcher.xml.flat",
+        "source": "com.styleme.app-main-71:/mipmap-xhdpi/ic_launcher.xml"
+    }
+]

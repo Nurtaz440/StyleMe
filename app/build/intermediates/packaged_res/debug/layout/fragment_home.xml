@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:paddingBottom="32dp">
+
+        <!-- Header -->
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="✂️ Style Me"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/tv_sub"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Upload a photo to try new hair colours and styles"
+            android:textSize="13sp"
+            android:textColor="@color/text_secondary"
+            app:layout_constraintTop_toBottomOf="@id/tv_title"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="2dp" />
+
+        <!-- Photo card -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_photo"
+            android:layout_width="0dp"
+            android:layout_height="300dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/surface"
+            app:layout_constraintTop_toBottomOf="@id/tv_sub"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <TextView
+                    android:id="@+id/tv_placeholder"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:text="📷\n\nTap Upload to get started"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="15sp"
+                    android:gravity="center"
+                    android:padding="24dp" />
+
+                <ImageView
+                    android:id="@+id/iv_photo"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerInside"
+                    android:visibility="gone" />
+
+            </FrameLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Progress + status -->
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/card_photo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="12dp" />
+
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:gravity="center"
+            app:layout_constraintTop_toBottomOf="@id/progress_bar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="4dp" />
+
+        <!-- Upload button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_upload_photo"
+            android:layout_width="0dp"
+            android:layout_height="54dp"
+            android:text="Upload Photo"
+            app:icon="@drawable/ic_upload"
+            app:iconGravity="start"
+            app:cornerRadius="27dp"
+            android:backgroundTint="@color/primary"
+            android:textSize="15sp"
+            app:layout_constraintTop_toBottomOf="@id/tv_status"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="14dp" />
+
+        <!-- Change Colour / Change Style row -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_change_colour"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:text="Change Colour"
+            app:icon="@drawable/ic_palette"
+            app:iconGravity="start"
+            app:cornerRadius="26dp"
+            android:backgroundTint="@color/secondary"
+            android:textSize="14sp"
+            app:layout_constraintTop_toBottomOf="@id/btn_upload_photo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btn_change_style"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="6dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_change_style"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:text="Change Style"
+            app:icon="@drawable/ic_style"
+            app:iconGravity="start"
+            app:cornerRadius="26dp"
+            android:backgroundTint="@color/accent"
+            android:textSize="14sp"
+            app:layout_constraintTop_toBottomOf="@id/btn_upload_photo"
+            app:layout_constraintStart_toEndOf="@id/btn_change_colour"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="6dp" />
+
+        <!-- Discard / revert -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_discard"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:text="↩  Revert to Original"
+            app:cornerRadius="25dp"
+            app:strokeColor="@color/error"
+            android:textColor="@color/error"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/btn_change_colour"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="10dp" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>
