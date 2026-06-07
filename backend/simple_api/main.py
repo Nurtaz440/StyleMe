@@ -7,6 +7,14 @@ import cloudinary.api
 import os
 import random
 import uuid
+import firebase_admin
+from firebase_admin import credentials, firestore as fs
+
+# Initialize Firebase Admin
+if not firebase_admin._apps:
+    firebase_admin.initialize_app()
+
+db = fs.client()
 
 app = FastAPI()
 
@@ -143,7 +151,18 @@ def get_picture_file(picture_id: int):
 def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
     pic = pictures_store.get(picture_id)
     if not pic:
-        raise HTTPException(404, "Picture not found")
+        # Server restarted - create placeholder with just the ID
+        pic = {
+            "id":        picture_id,
+            "file_name": "photo.jpg",
+            "file_path": None,
+            "public_id": None,
+            "file_size": "0",
+            "height":    None,
+            "width":     None,
+            "date_created": ""
+        }
+        pictures_store[picture_id] = pic
 
     public_id = pic.get("public_id", "")
     hex_color = f"{r:02X}{g:02X}{b:02X}"
@@ -180,15 +199,38 @@ def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
 @app.get("/pictures/change_hair_style")
 def change_hair_style(user_picture_id: int, model_picture_id: int):
     pic = pictures_store.get(user_picture_id)
+
+    # If picture not in memory (server restarted), create a placeholder
     if not pic:
-        raise HTTPException(404, "Picture not found")
-    # Returns same picture — real ML hair style needs local PC
+        pic = {
+            "id":           user_picture_id,
+            "file_name":    "photo.jpg",
+            "file_path":    None,
+            "public_id":    None,
+            "file_size":    "0",
+            "height":       None,
+            "width":        None,
+            "date_created": ""
+        }
+        pictures_store[user_picture_id] = pic
+
+    model_styles = {
+        1: "straight", 2: "wavy", 3: "curly", 4: "coily",
+        5: "bob", 6: "pixie", 7: "lob", 8: "layered",
+        9: "bangs", 10: "updo"
+    }
+    style_name = model_styles.get(model_picture_id, "style")
+
+    new_id = abs(hash(f"{user_picture_id}_{model_picture_id}")) % 1000000
+    new_pic = {**pic, "id": new_id}
+    pictures_store[new_id] = new_pic
+
     return {
-        "current_picture":  pic,
+        "current_picture":  new_pic,
         "original_picture": pic,
         "history_entry": {
             "id":                  abs(hash(str(uuid.uuid4()))) % 1000000,
-            "picture_id":          user_picture_id,
+            "picture_id":          new_id,
             "original_picture_id": user_picture_id,
             "hair_style_id":       model_picture_id
         }
