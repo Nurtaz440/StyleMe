@@ -203,7 +203,18 @@ def discard_changes(original_picture_id: int):
 
 @app.get("/model_pictures")
 def get_model_pictures():
-    return []
+    return [
+        {"id": 1,  "file_name": "straight_short.jpg",  "file_path": None, "hair_style_id": 1,  "face_shape_id": None, "hair_length_id": 1},
+        {"id": 2,  "file_name": "wavy_medium.jpg",      "file_path": None, "hair_style_id": 2,  "face_shape_id": None, "hair_length_id": 2},
+        {"id": 3,  "file_name": "curly_long.jpg",       "file_path": None, "hair_style_id": 3,  "face_shape_id": None, "hair_length_id": 3},
+        {"id": 4,  "file_name": "coily_medium.jpg",     "file_path": None, "hair_style_id": 4,  "face_shape_id": None, "hair_length_id": 2},
+        {"id": 5,  "file_name": "bob_short.jpg",        "file_path": None, "hair_style_id": 5,  "face_shape_id": None, "hair_length_id": 1},
+        {"id": 6,  "file_name": "pixie_cut.jpg",        "file_path": None, "hair_style_id": 6,  "face_shape_id": None, "hair_length_id": 1},
+        {"id": 7,  "file_name": "long_bob.jpg",         "file_path": None, "hair_style_id": 7,  "face_shape_id": None, "hair_length_id": 2},
+        {"id": 8,  "file_name": "layered_long.jpg",     "file_path": None, "hair_style_id": 8,  "face_shape_id": None, "hair_length_id": 3},
+        {"id": 9,  "file_name": "bangs_medium.jpg",     "file_path": None, "hair_style_id": 9,  "face_shape_id": None, "hair_length_id": 2},
+        {"id": 10, "file_name": "updo_formal.jpg",      "file_path": None, "hair_style_id": 10, "face_shape_id": None, "hair_length_id": 2},
+    ]
 
 @app.get("/history/latest")
 def get_latest_history():
