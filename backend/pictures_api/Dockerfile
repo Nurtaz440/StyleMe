@@ -17,7 +17,7 @@ FROM python:3.10-slim AS base
 # System libs required for OpenCV and face landmark detection
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 libsm6 libxrender1 libxext6 libgl1 \
-    curl git \
+    curl git cmake build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
