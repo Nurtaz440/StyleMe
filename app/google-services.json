@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "559057680946",
+    "project_id": "styleme-f38f1",
+    "storage_bucket": "styleme-f38f1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:559057680946:android:f25c31509040070e4d1a2b",
+        "android_client_info": {
+          "package_name": "com.styleme.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3qsJe_NMhDuxoq5S9oGeJGKovLafdU4E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
