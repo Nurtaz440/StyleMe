@@ -1,35 +1,16 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
 import cloudinary
 import cloudinary.uploader
-import cloudinary.api
-import os
-import random
-import uuid
-import firebase_admin
-from firebase_admin import credentials, firestore as fs
-
-# Initialize Firebase Admin
-if not firebase_admin._apps:
-    firebase_admin.initialize_app()
-
-db = fs.client()
+import os, random, uuid
 
 app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
-
-# Cloudinary config
 cloudinary.config(
-    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key    = os.getenv("CLOUDINARY_API_KEY"),
-    api_secret = os.getenv("CLOUDINARY_API_SECRET")
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", ""),
+    api_key    = os.getenv("CLOUDINARY_API_KEY", ""),
+    api_secret = os.getenv("CLOUDINARY_API_SECRET", "")
 )
 
 FACE_SHAPES = [
@@ -72,12 +53,38 @@ HAIR_STYLES = [
     {"id": 10, "name": "updo",     "label": "Updo / Bun"},
 ]
 
-# In-memory storage (simple, no DB needed)
+MODEL_PICTURES = [
+    {"id": 1,  "file_name": "Straight Short",  "file_path": None, "hair_style_id": 1,  "face_shape_id": None, "hair_length_id": 1},
+    {"id": 2,  "file_name": "Wavy Medium",      "file_path": None, "hair_style_id": 2,  "face_shape_id": None, "hair_length_id": 2},
+    {"id": 3,  "file_name": "Curly Long",        "file_path": None, "hair_style_id": 3,  "face_shape_id": None, "hair_length_id": 3},
+    {"id": 4,  "file_name": "Coily Natural",     "file_path": None, "hair_style_id": 4,  "face_shape_id": None, "hair_length_id": 2},
+    {"id": 5,  "file_name": "Bob Short",         "file_path": None, "hair_style_id": 5,  "face_shape_id": None, "hair_length_id": 1},
+    {"id": 6,  "file_name": "Pixie Cut",         "file_path": None, "hair_style_id": 6,  "face_shape_id": None, "hair_length_id": 1},
+    {"id": 7,  "file_name": "Long Bob",          "file_path": None, "hair_style_id": 7,  "face_shape_id": None, "hair_length_id": 2},
+    {"id": 8,  "file_name": "Layered Long",      "file_path": None, "hair_style_id": 8,  "face_shape_id": None, "hair_length_id": 3},
+    {"id": 9,  "file_name": "Bangs Fringe",      "file_path": None, "hair_style_id": 9,  "face_shape_id": None, "hair_length_id": 2},
+    {"id": 10, "file_name": "Updo Bun",          "file_path": None, "hair_style_id": 10, "face_shape_id": None, "hair_length_id": 2},
+]
+
+# In-memory picture storage
 pictures_store = {}
+
+def make_placeholder_pic(picture_id: int):
+    """Create a placeholder when picture not found in memory (server restarted)"""
+    return {
+        "id":           picture_id,
+        "file_name":    "photo.jpg",
+        "file_path":    None,
+        "public_id":    None,
+        "file_size":    "0",
+        "height":       None,
+        "width":        None,
+        "date_created": ""
+    }
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "1.0"}
+    return {"status": "ok", "pictures_in_memory": len(pictures_store)}
 
 @app.get("/hair_colours")
 def get_hair_colours():
@@ -91,21 +98,23 @@ def get_hair_styles():
 def get_face_shapes():
     return FACE_SHAPES
 
+@app.get("/model_pictures")
+def get_model_pictures():
+    return MODEL_PICTURES
+
 @app.post("/pictures")
 async def upload_picture(file: UploadFile = File(...)):
     try:
-        # Upload to Cloudinary
         contents = await file.read()
         result = cloudinary.uploader.upload(
             contents,
             folder="styleme/user_photos",
             resource_type="image"
         )
-
         picture_id = abs(hash(result["public_id"])) % 1000000
         picture = {
             "id":           picture_id,
-            "file_name":    result["original_filename"] + ".jpg",
+            "file_name":    result.get("original_filename", "photo") + ".jpg",
             "file_path":    result["secure_url"],
             "public_id":    result["public_id"],
             "file_size":    str(result.get("bytes", 0)),
@@ -113,21 +122,16 @@ async def upload_picture(file: UploadFile = File(...)):
             "width":        result.get("width"),
             "date_created": str(result.get("created_at", ""))
         }
-
-        # Store in memory
         pictures_store[picture_id] = picture
-
-        # Random face shape detection
         face_shape = random.choice(FACE_SHAPES)
-
+        history_id = abs(hash(str(uuid.uuid4()))) % 1000000
         history = {
-            "id":                  abs(hash(str(uuid.uuid4()))) % 1000000,
+            "id":                  history_id,
             "picture_id":          picture_id,
             "original_picture_id": picture_id,
             "face_shape_id":       face_shape["id"],
             "date_created":        picture["date_created"]
         }
-
         return {
             "picture":       picture,
             "face_shape":    face_shape,
@@ -136,51 +140,31 @@ async def upload_picture(file: UploadFile = File(...)):
             "file_name":     picture["file_name"],
             "message":       "Upload successful"
         }
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/pictures/file/{picture_id}")
 def get_picture_file(picture_id: int):
-    pic = pictures_store.get(picture_id)
-    if not pic:
-        raise HTTPException(404, "Picture not found")
-    return {"url": pic["file_path"]}
+    pic = pictures_store.get(picture_id, make_placeholder_pic(picture_id))
+    return {"url": pic.get("file_path"), "picture": pic}
 
 @app.get("/pictures/change_hair_colour/{picture_id}")
 def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
-    pic = pictures_store.get(picture_id)
-    if not pic:
-        # Server restarted - create placeholder with just the ID
-        pic = {
-            "id":        picture_id,
-            "file_name": "photo.jpg",
-            "file_path": None,
-            "public_id": None,
-            "file_size": "0",
-            "height":    None,
-            "width":     None,
-            "date_created": ""
-        }
-        pictures_store[picture_id] = pic
-
-    public_id = pic.get("public_id", "")
+    pic = pictures_store.get(picture_id, make_placeholder_pic(picture_id))
+    public_id = pic.get("public_id")
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
     hex_color = f"{r:02X}{g:02X}{b:02X}"
 
-    # Cloudinary transformation URL — no ML needed!
-    transformed_url = (
-        f"https://res.cloudinary.com/"
-        f"{os.getenv('CLOUDINARY_CLOUD_NAME')}/image/upload/"
-        f"e_colorize:60,co_rgb:{hex_color}/{public_id}"
-    )
+    if public_id and cloud_name:
+        transformed_url = (
+            f"https://res.cloudinary.com/{cloud_name}/image/upload/"
+            f"e_colorize:60,co_rgb:{hex_color}/{public_id}"
+        )
+    else:
+        transformed_url = pic.get("file_path")
 
-    new_id = abs(hash(transformed_url)) % 1000000
-    new_pic = {
-        **pic,
-        "id":        new_id,
-        "file_path": transformed_url,
-        "public_id": public_id
-    }
+    new_id = abs(hash(f"{picture_id}_{colour}_{hex_color}")) % 1000000
+    new_pic = {**pic, "id": new_id, "file_path": transformed_url, "public_id": public_id}
     pictures_store[new_id] = new_pic
 
     hair_colour = next((c for c in HAIR_COLOURS if c["name"] == colour), None)
@@ -198,32 +182,14 @@ def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
 
 @app.get("/pictures/change_hair_style")
 def change_hair_style(user_picture_id: int, model_picture_id: int):
-    pic = pictures_store.get(user_picture_id)
-
-    # If picture not in memory (server restarted), create a placeholder
-    if not pic:
-        pic = {
-            "id":           user_picture_id,
-            "file_name":    "photo.jpg",
-            "file_path":    None,
-            "public_id":    None,
-            "file_size":    "0",
-            "height":       None,
-            "width":        None,
-            "date_created": ""
-        }
-        pictures_store[user_picture_id] = pic
-
-    model_styles = {
-        1: "straight", 2: "wavy", 3: "curly", 4: "coily",
-        5: "bob", 6: "pixie", 7: "lob", 8: "layered",
-        9: "bangs", 10: "updo"
-    }
-    style_name = model_styles.get(model_picture_id, "style")
+    # Always succeeds - uses placeholder if picture not in memory
+    pic = pictures_store.get(user_picture_id, make_placeholder_pic(user_picture_id))
 
     new_id = abs(hash(f"{user_picture_id}_{model_picture_id}")) % 1000000
     new_pic = {**pic, "id": new_id}
     pictures_store[new_id] = new_pic
+
+    model = next((m for m in MODEL_PICTURES if m["id"] == model_picture_id), None)
 
     return {
         "current_picture":  new_pic,
@@ -232,36 +198,15 @@ def change_hair_style(user_picture_id: int, model_picture_id: int):
             "id":                  abs(hash(str(uuid.uuid4()))) % 1000000,
             "picture_id":          new_id,
             "original_picture_id": user_picture_id,
-            "hair_style_id":       model_picture_id
+            "hair_style_id":       model["hair_style_id"] if model else model_picture_id
         }
     }
 
 @app.delete("/pictures/discard_changes/{original_picture_id}")
 def discard_changes(original_picture_id: int):
-    pic = pictures_store.get(original_picture_id)
-    if not pic:
-        raise HTTPException(404, "Picture not found")
+    pic = pictures_store.get(original_picture_id, make_placeholder_pic(original_picture_id))
     return {"current_picture": pic, "history": None}
-
-@app.get("/model_pictures")
-def get_model_pictures():
-    return [
-        {"id": 1,  "file_name": "straight_short.jpg",  "file_path": None, "hair_style_id": 1,  "face_shape_id": None, "hair_length_id": 1},
-        {"id": 2,  "file_name": "wavy_medium.jpg",      "file_path": None, "hair_style_id": 2,  "face_shape_id": None, "hair_length_id": 2},
-        {"id": 3,  "file_name": "curly_long.jpg",       "file_path": None, "hair_style_id": 3,  "face_shape_id": None, "hair_length_id": 3},
-        {"id": 4,  "file_name": "coily_medium.jpg",     "file_path": None, "hair_style_id": 4,  "face_shape_id": None, "hair_length_id": 2},
-        {"id": 5,  "file_name": "bob_short.jpg",        "file_path": None, "hair_style_id": 5,  "face_shape_id": None, "hair_length_id": 1},
-        {"id": 6,  "file_name": "pixie_cut.jpg",        "file_path": None, "hair_style_id": 6,  "face_shape_id": None, "hair_length_id": 1},
-        {"id": 7,  "file_name": "long_bob.jpg",         "file_path": None, "hair_style_id": 7,  "face_shape_id": None, "hair_length_id": 2},
-        {"id": 8,  "file_name": "layered_long.jpg",     "file_path": None, "hair_style_id": 8,  "face_shape_id": None, "hair_length_id": 3},
-        {"id": 9,  "file_name": "bangs_medium.jpg",     "file_path": None, "hair_style_id": 9,  "face_shape_id": None, "hair_length_id": 2},
-        {"id": 10, "file_name": "updo_formal.jpg",      "file_path": None, "hair_style_id": 10, "face_shape_id": None, "hair_length_id": 2},
-    ]
 
 @app.get("/history/latest")
 def get_latest_history():
-    return {
-        "history_entry":    None,
-        "current_picture":  None,
-        "original_picture": None
-    }
+    return {"history_entry": None, "current_picture": None, "original_picture": None}

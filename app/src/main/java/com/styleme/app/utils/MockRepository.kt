@@ -59,16 +59,17 @@ object MockRepository {
     )
 
     val fakeModelPictures = listOf(
-        ModelPicture(1, "model_straight_short.jpg", null, null, 1,  null, 1, null),
-        ModelPicture(2, "model_wavy_medium.jpg",    null, null, 2,  null, 2, null),
-        ModelPicture(3, "model_curly_long.jpg",     null, null, 3,  null, 3, null),
-        ModelPicture(4, "model_bob_short.jpg",      null, null, 5,  null, 1, null),
-        ModelPicture(5, "model_pixie.jpg",          null, null, 6,  null, 1, null),
-        ModelPicture(6, "model_layered_long.jpg",   null, null, 8,  null, 3, null),
-        ModelPicture(7, "model_bangs_medium.jpg",   null, null, 9,  null, 2, null),
-        ModelPicture(8, "model_updo_formal.jpg",    null, null, 10, null, 2, null)
+        ModelPicture(1,  "Straight Short",  null, null, null, 1,  null, 1),
+        ModelPicture(2,  "Wavy Medium",     null, null, null, 2,  null, 2),
+        ModelPicture(3,  "Curly Long",      null, null, null, 3,  null, 3),
+        ModelPicture(4,  "Coily Natural",   null, null, null, 4,  null, 2),
+        ModelPicture(5,  "Bob Short",       null, null, null, 5,  null, 1),
+        ModelPicture(6,  "Pixie Cut",       null, null, null, 6,  null, 1),
+        ModelPicture(7,  "Long Bob",        null, null, null, 7,  null, 2),
+        ModelPicture(8,  "Layered Long",    null, null, null, 8,  null, 3),
+        ModelPicture(9,  "Bangs Fringe",    null, null, null, 9,  null, 2),
+        ModelPicture(10, "Updo Bun",        null, null, null, 10, null, 2)
     )
-
     private var pictureCounter = 100
     fun makeFakePicture(name: String = "photo.jpg") =
         Picture(++pictureCounter, name, "/fake/$name", "1.2 MB", 800, 600, "2024-01-01", null)

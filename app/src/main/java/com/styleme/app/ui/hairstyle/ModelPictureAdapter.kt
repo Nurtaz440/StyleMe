@@ -18,20 +18,29 @@ class ModelPictureAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(model: ModelPicture) {
-            val stylePart = model.hairStyleLabel ?: model.hairStyleName?.replaceFirstChar { it.uppercase() }
-            val facePart  = model.faceShapeLabel ?: model.faceShapeName?.replaceFirstChar { it.uppercase() }
-            binding.tvModelName.text = when {
-                stylePart != null && facePart != null -> "$stylePart – $facePart"
-                stylePart != null                    -> stylePart
-                else -> model.fileName.substringBeforeLast('.').replace('_', ' ')
-            }
+            // Show file name as label
+            binding.tvModelName.text = model.fileName
+                .substringBeforeLast('.')
+                .replace('_', ' ')
+                .replaceFirstChar { it.uppercase() }
 
-            binding.ivModelPicture.setImageResource(android.R.drawable.ic_menu_gallery)
-
-            onImageNeeded(model.id) { bitmap ->
-                if (bitmap != null) {
-                    binding.ivModelPicture.setImageBitmap(bitmap)
-                }
+            // Show coloured placeholder when no image available
+            if (model.filePath != null) {
+                com.bumptech.glide.Glide.with(binding.root.context)
+                    .load(model.filePath)
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .into(binding.ivModelPicture)
+            } else {
+                // Show style colour placeholder
+                val colours = listOf(
+                    0xFF7B4FBE, 0xFFE75480, 0xFFFF8C42,
+                    0xFF1A73E8, 0xFF009688, 0xFF8E44AD,
+                    0xFFE74C3C, 0xFF2ECC71, 0xFFF39C12,
+                    0xFF1ABC9C
+                )
+                val color = colours[(model.id - 1) % colours.size].toInt()
+                binding.ivModelPicture.setBackgroundColor(color)
+                binding.ivModelPicture.setImageResource(android.R.drawable.ic_menu_gallery)
             }
 
             binding.root.setOnClickListener { onModelClick(model) }

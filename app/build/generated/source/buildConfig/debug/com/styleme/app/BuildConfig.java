@@ -10,7 +10,7 @@ public final class BuildConfig {
   public static final int VERSION_CODE = 1;
   public static final String VERSION_NAME = "1.0";
   // Field from default config.
-  public static final String BASE_URL_PICTURES = "http://10.4.246.254:8000/";
+  public static final String BASE_URL_PICTURES = "https://styleme-api.onrender.com/";
   // Field from default config.
-  public static final String BASE_URL_USERS = "http://10.4.246.254:5000/api/";
+  public static final String BASE_URL_USERS = "https://styleme-api.onrender.com/";
 }

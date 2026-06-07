@@ -2,29 +2,23 @@ package com.styleme.app.viewmodels
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
 import com.styleme.app.api.ApiClient
+import com.styleme.app.firebase.FirebaseRepository
 import com.styleme.app.models.*
 import com.styleme.app.utils.*
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
-import android.graphics.BitmapFactory
-import android.util.Log
-import com.google.firebase.Firebase
-import com.google.firebase.firestore.firestore
-import com.styleme.app.firebase.FirebaseRepository
-import okhttp3.RequestBody
-
-import okhttp3.MediaType
-import okhttp3.MediaType.Companion.toMediaType
-
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val picturesApi = ApiClient.picturesApi
@@ -50,9 +44,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             if (MockRepository.enabled) {
                 MockRepository.fakeLongDelay(1400)
-                val pic   = MockRepository.makeFakePicture("my_photo.jpg")
+                val pic = MockRepository.makeFakePicture("my_photo.jpg")
                 val shape = MockRepository.fakeFaceShapes.random()
-                currentPictureId.value  = pic.id
+                currentPictureId.value = pic.id
                 originalPictureId.value = pic.id
                 detectedFaceShape.value = shape
                 cachedBitmap = MockRepository.makePlaceholderBitmap(
@@ -60,12 +54,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 _uploadState.value = Resource.Success(
                     UploadPictureResponse(
-                        picture      = pic,
-                        faceShape    = shape,
+                        picture = pic,
+                        faceShape = shape,
                         historyEntry = null,
-                        id           = pic.id,
-                        fileName     = pic.fileName,
-                        message      = null)
+                        id = pic.id,
+                        fileName = pic.fileName,
+                        message = null
+                    )
                 )
                 _currentBitmap.value = Resource.Success(cachedBitmap)
                 return@launch
@@ -74,7 +69,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val result = FirebaseRepository.uploadPicture(uri)
             if (result is Resource.Success) {
                 val body = result.data
-                currentPictureId.value  = body.picture.id
+                currentPictureId.value = body.picture.id
                 originalPictureId.value = body.picture.id
                 detectedFaceShape.value = body.faceShape
                 _uploadState.value = Resource.Success(body)
@@ -92,11 +87,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _currentBitmap.value = Resource.Loading
         viewModelScope.launch {
             try {
-                val bitmap = com.bumptech.glide.Glide.with(getApplication<Application>())
-                    .asBitmap()
-                    .load(url)
-                    .submit()
-                    .get()
+                // Must run on IO background thread
+                val bitmap = withContext(Dispatchers.IO) {
+                    com.bumptech.glide.Glide
+                        .with(getApplication<Application>())
+                        .asBitmap()
+                        .load(url)
+                        .submit()
+                        .get()
+                }
                 cachedBitmap = bitmap
                 _currentBitmap.value = Resource.Success(bitmap)
             } catch (e: Exception) {
@@ -172,25 +171,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
     fun seedFirestore() {
         val db = Firebase.firestore
 
         val colours = listOf(
-            mapOf("id" to 1,  "name" to "jet_black",       "html_code" to "#0A0A0A"),
-            mapOf("id" to 2,  "name" to "dark_brown",      "html_code" to "#3B1F0E"),
-            mapOf("id" to 3,  "name" to "medium_brown",    "html_code" to "#6B3A2A"),
-            mapOf("id" to 4,  "name" to "light_brown",     "html_code" to "#A0522D"),
-            mapOf("id" to 5,  "name" to "dirty_blonde",    "html_code" to "#C8A96E"),
-            mapOf("id" to 6,  "name" to "golden_blonde",   "html_code" to "#F0C040"),
-            mapOf("id" to 7,  "name" to "platinum_blonde", "html_code" to "#F5E6C8"),
-            mapOf("id" to 8,  "name" to "auburn",          "html_code" to "#922B21"),
-            mapOf("id" to 9,  "name" to "copper_red",      "html_code" to "#C0392B"),
-            mapOf("id" to 10, "name" to "bright_red",      "html_code" to "#E74C3C"),
-            mapOf("id" to 11, "name" to "rose_gold",       "html_code" to "#E8B4B8"),
-            mapOf("id" to 12, "name" to "pastel_pink",     "html_code" to "#FFB6C1"),
-            mapOf("id" to 13, "name" to "electric_blue",   "html_code" to "#1A73E8"),
-            mapOf("id" to 14, "name" to "violet_purple",   "html_code" to "#8E44AD"),
-            mapOf("id" to 15, "name" to "silver_grey",     "html_code" to "#95A5A6")
+            mapOf("id" to 1, "name" to "jet_black", "html_code" to "#0A0A0A"),
+            mapOf("id" to 2, "name" to "dark_brown", "html_code" to "#3B1F0E"),
+            mapOf("id" to 3, "name" to "medium_brown", "html_code" to "#6B3A2A"),
+            mapOf("id" to 4, "name" to "light_brown", "html_code" to "#A0522D"),
+            mapOf("id" to 5, "name" to "dirty_blonde", "html_code" to "#C8A96E"),
+            mapOf("id" to 6, "name" to "golden_blonde", "html_code" to "#F0C040"),
+            mapOf("id" to 7, "name" to "platinum_blonde", "html_code" to "#F5E6C8"),
+            mapOf("id" to 8, "name" to "auburn", "html_code" to "#922B21"),
+            mapOf("id" to 9, "name" to "copper_red", "html_code" to "#C0392B"),
+            mapOf("id" to 10, "name" to "bright_red", "html_code" to "#E74C3C"),
+            mapOf("id" to 11, "name" to "rose_gold", "html_code" to "#E8B4B8"),
+            mapOf("id" to 12, "name" to "pastel_pink", "html_code" to "#FFB6C1"),
+            mapOf("id" to 13, "name" to "electric_blue", "html_code" to "#1A73E8"),
+            mapOf("id" to 14, "name" to "violet_purple", "html_code" to "#8E44AD"),
+            mapOf("id" to 15, "name" to "silver_grey", "html_code" to "#95A5A6")
         )
 
         // Clear old data first then re-seed
@@ -200,22 +200,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 .set(colour)
         }
     }
+
     val fakeHairColours = listOf(
-        HairColour(1,  "jet_black",       "#0A0A0A", null),
-        HairColour(2,  "dark_brown",      "#3B1F0E", null),
-        HairColour(3,  "medium_brown",    "#6B3A2A", null),
-        HairColour(4,  "light_brown",     "#A0522D", null),
-        HairColour(5,  "dirty_blonde",    "#C8A96E", null),
-        HairColour(6,  "golden_blonde",   "#F0C040", null),
-        HairColour(7,  "platinum_blonde", "#F5E6C8", null),
-        HairColour(8,  "strawberry",      "#E8846A", null),
-        HairColour(9,  "auburn",          "#922B21", null),
-        HairColour(10, "copper_red",      "#C0392B", null),
-        HairColour(11, "bright_red",      "#E74C3C", null),
-        HairColour(12, "rose_gold",       "#E8B4B8", null),
-        HairColour(13, "pastel_pink",     "#FFB6C1", null),
-        HairColour(14, "electric_blue",   "#1A73E8", null),
-        HairColour(15, "violet_purple",   "#8E44AD", null),
-        HairColour(16, "silver_grey",     "#95A5A6", null)
+        HairColour(1, "jet_black", "#0A0A0A", null),
+        HairColour(2, "dark_brown", "#3B1F0E", null),
+        HairColour(3, "medium_brown", "#6B3A2A", null),
+        HairColour(4, "light_brown", "#A0522D", null),
+        HairColour(5, "dirty_blonde", "#C8A96E", null),
+        HairColour(6, "golden_blonde", "#F0C040", null),
+        HairColour(7, "platinum_blonde", "#F5E6C8", null),
+        HairColour(8, "strawberry", "#E8846A", null),
+        HairColour(9, "auburn", "#922B21", null),
+        HairColour(10, "copper_red", "#C0392B", null),
+        HairColour(11, "bright_red", "#E74C3C", null),
+        HairColour(12, "rose_gold", "#E8B4B8", null),
+        HairColour(13, "pastel_pink", "#FFB6C1", null),
+        HairColour(14, "electric_blue", "#1A73E8", null),
+        HairColour(15, "violet_purple", "#8E44AD", null),
+        HairColour(16, "silver_grey", "#95A5A6", null)
     )
 }

@@ -1,11 +1,11 @@
 package com.styleme.app.api;
 
-@kotlin.Metadata(mv = {1, 9, 0}, k = 1, xi = 48, d1 = {"\u0000,\n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0002\b\u0002\n\u0002\u0018\u0002\n\u0000\n\u0002\u0018\u0002\n\u0002\b\u0007\n\u0002\u0018\u0002\n\u0000\n\u0002\u0010\u0002\n\u0000\n\u0002\u0018\u0002\n\u0000\b\u00c6\u0002\u0018\u00002\u00020\u0001B\u0007\b\u0002\u00a2\u0006\u0002\u0010\u0002J\b\u0010\r\u001a\u00020\u000eH\u0002J\u000e\u0010\u000f\u001a\u00020\u00102\u0006\u0010\u0011\u001a\u00020\u0012R\u0010\u0010\u0003\u001a\u0004\u0018\u00010\u0004X\u0082\u000e\u00a2\u0006\u0002\n\u0000R\u0010\u0010\u0005\u001a\u0004\u0018\u00010\u0006X\u0082\u000e\u00a2\u0006\u0002\n\u0000R\u0011\u0010\u0007\u001a\u00020\u00048F\u00a2\u0006\u0006\u001a\u0004\b\b\u0010\tR\u0011\u0010\n\u001a\u00020\u00068F\u00a2\u0006\u0006\u001a\u0004\b\u000b\u0010\f\u00a8\u0006\u0013"}, d2 = {"Lcom/styleme/app/api/ApiClient;", "", "()V", "_picturesApi", "Lcom/styleme/app/api/PicturesApiService;", "_usersApi", "Lcom/styleme/app/api/UsersApiService;", "picturesApi", "getPicturesApi", "()Lcom/styleme/app/api/PicturesApiService;", "usersApi", "getUsersApi", "()Lcom/styleme/app/api/UsersApiService;", "buildClient", "Lokhttp3/OkHttpClient;", "init", "", "context", "Landroid/content/Context;", "app_debug"})
+@kotlin.Metadata(mv = {1, 9, 0}, k = 1, xi = 48, d1 = {"\u0000\"\n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0002\b\u0002\n\u0002\u0018\u0002\n\u0002\b\u0005\n\u0002\u0018\u0002\n\u0002\b\u0004\n\u0002\u0018\u0002\n\u0000\b\u00c6\u0002\u0018\u00002\u00020\u0001B\u0007\b\u0002\u00a2\u0006\u0002\u0010\u0002J\b\u0010\u000e\u001a\u00020\u000fH\u0002R\u001b\u0010\u0003\u001a\u00020\u00048FX\u0086\u0084\u0002\u00a2\u0006\f\n\u0004\b\u0007\u0010\b\u001a\u0004\b\u0005\u0010\u0006R\u001b\u0010\t\u001a\u00020\n8FX\u0086\u0084\u0002\u00a2\u0006\f\n\u0004\b\r\u0010\b\u001a\u0004\b\u000b\u0010\f\u00a8\u0006\u0010"}, d2 = {"Lcom/styleme/app/api/ApiClient;", "", "()V", "picturesApi", "Lcom/styleme/app/api/PicturesApiService;", "getPicturesApi", "()Lcom/styleme/app/api/PicturesApiService;", "picturesApi$delegate", "Lkotlin/Lazy;", "usersApi", "Lcom/styleme/app/api/UsersApiService;", "getUsersApi", "()Lcom/styleme/app/api/UsersApiService;", "usersApi$delegate", "buildClient", "Lokhttp3/OkHttpClient;", "app_debug"})
 public final class ApiClient {
-    @org.jetbrains.annotations.Nullable
-    private static com.styleme.app.api.UsersApiService _usersApi;
-    @org.jetbrains.annotations.Nullable
-    private static com.styleme.app.api.PicturesApiService _picturesApi;
+    @org.jetbrains.annotations.NotNull
+    private static final kotlin.Lazy usersApi$delegate = null;
+    @org.jetbrains.annotations.NotNull
+    private static final kotlin.Lazy picturesApi$delegate = null;
     @org.jetbrains.annotations.NotNull
     public static final com.styleme.app.api.ApiClient INSTANCE = null;
     
@@ -15,10 +15,6 @@ public final class ApiClient {
     
     private final okhttp3.OkHttpClient buildClient() {
         return null;
-    }
-    
-    public final void init(@org.jetbrains.annotations.NotNull
-    android.content.Context context) {
     }
     
     @org.jetbrains.annotations.NotNull

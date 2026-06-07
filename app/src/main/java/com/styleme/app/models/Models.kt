@@ -84,20 +84,13 @@ data class HairLength(
 @Parcelize
 data class ModelPicture(
     val id: Int,
-    @SerializedName("file_name") val fileName: String,
-    @SerializedName("file_path") val filePath: String?,
-    @SerializedName("file_size") val fileSize: String?,
+    @SerializedName("file_name")      val fileName: String,
+    @SerializedName("file_path")      val filePath: String?,
+    @SerializedName("file_size")      val fileSize: String?,
     @SerializedName("hair_colour_id") val hairColourId: Int?,
-    @SerializedName("hair_style_id") val hairStyleId: Int?,
-    @SerializedName("face_shape_id") val faceShapeId: Int?,
-
-
-
-    // Joined fields from backend
-    @SerializedName("hair_style_label") val hairStyleLabel: String? = null,
-    @SerializedName("hair_style_name") val hairStyleName: String? = null,
-    @SerializedName("face_shape_label") val faceShapeLabel: String? = null,
-    @SerializedName("face_shape_name") val faceShapeName: String? = null
+    @SerializedName("hair_style_id")  val hairStyleId: Int?,
+    @SerializedName("face_shape_id")  val faceShapeId: Int?,
+    @SerializedName("hair_length_id") val hairLengthId: Int?
 ) : Parcelable
 
 @Parcelize
