@@ -78,27 +78,23 @@ def make_placeholder_pic(picture_id: int):
 
 def apply_wig_overlay(user_public_id: str, wig_public_id: str, cloud_name: str) -> str:
     """
-    Use Cloudinary's overlay transformation to place wig on top of face.
-    Uses face detection (g_face) to position wig automatically.
+    Overlay wig PNG on user photo using Cloudinary transformations.
+    Uses simple, valid transformation syntax.
     """
-    # Encode the wig public_id for URL (replace / with :)
+    # Replace slashes with colons for Cloudinary layer syntax
     wig_layer = wig_public_id.replace("/", ":")
 
-    # Cloudinary transformation:
-    # 1. Detect face and crop to face area with padding
-    # 2. Overlay wig image centered on face, scaled to 130% of face width
-    # 3. Position wig at top of face (gravity north_face)
+    # Simple valid transformation — overlay wig centered on top
     transformation = (
-        f"w_600,h_700,c_fill,g_face,z_0.8/"          # crop to face
-        f"l_{wig_layer},"                              # overlay wig layer
-        f"w_1.3,h_1.3,fl_relative,"                   # scale wig to 130% of base
-        f"g_north_face,y_-0.15,fl_layer_apply"        # position at top of face
+        f"w_500,h_600,c_fill,g_face/"
+        f"l_{wig_layer},w_500,h_300,c_fit,g_north,y_0,fl_layer_apply"
     )
 
-    return (
+    url = (
         f"https://res.cloudinary.com/{cloud_name}"
         f"/image/upload/{transformation}/{user_public_id}"
     )
+    return url
 
 @app.get("/health")
 def health():
@@ -265,3 +261,16 @@ def register_picture(picture_id: int, url: str, public_id: str):
         "date_created": ""
     }
     return {"status": "registered", "picture_id": picture_id}
+WIG_PUBLIC_IDS = {
+    1: "styleme/wigs/hair1",  # hair1.png
+    2: "styleme/wigs/hair2",  # hair2.png
+    3: "styleme/wigs/hair3",  # hair3.png
+}
+@app.get("/test/wig_url")
+def test_wig_url(user_public_id: str, style_id: int = 1):
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+    wig_pub_id = WIG_PUBLIC_IDS.get(style_id, "")
+    if not wig_pub_id or not cloud_name:
+        return {"error": "Missing config", "cloud_name": cloud_name, "wig_pub_id": wig_pub_id}
+    url = apply_wig_overlay(user_public_id, wig_pub_id, cloud_name)
+    return {"url": url, "user_public_id": user_public_id, "wig_pub_id": wig_pub_id}
