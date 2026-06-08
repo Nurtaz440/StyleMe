@@ -17,16 +17,23 @@ class HairColourAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(colour: HairColour) {
-            // Use colourName instead of name
-            binding.tvColourName.text = formatColourName(colour.colourName ?: "Unknown")
+            // Fix: show formatted name only, not hash
+            val displayName = (colour.colourName ?: colour.colourHash)
+                .replace('_', ' ')
+                .split(' ')
+                .joinToString("\n") { word ->
+                    word.replaceFirstChar { it.uppercase() }
+                }
+            binding.tvColourName.text = displayName
 
-            // Use colourHash instead of r/g/b
+            // Fix colour swatch
             try {
                 val hex = colour.colourHash.let {
                     if (it.startsWith("#")) it else "#$it"
                 }
-                val colorInt = android.graphics.Color.parseColor(hex)
-                binding.vColourSwatch.setBackgroundColor(colorInt)
+                binding.vColourSwatch.setBackgroundColor(
+                    android.graphics.Color.parseColor(hex)
+                )
             } catch (e: Exception) {
                 binding.vColourSwatch.setBackgroundColor(android.graphics.Color.GRAY)
             }

@@ -80,6 +80,7 @@ class HairColourViewModel(application: Application) : AndroidViewModel(applicati
                         .document(pictureId.toString())
                         .get()
                         .await()
+
                 }
 
                 val publicId = doc.getString("public_id") ?: run {

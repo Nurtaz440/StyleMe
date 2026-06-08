@@ -211,17 +211,21 @@ def change_hair_style(user_picture_id: int, model_picture_id: int):
     user_pub   = pic.get("public_id")
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
 
-    # Find which style was selected
     model      = next((m for m in MODEL_PICTURES if m["id"] == model_picture_id), None)
     style_id   = model["hair_style_id"] if model else model_picture_id
     wig_pub_id = WIG_PUBLIC_IDS.get(style_id)
 
     if user_pub and wig_pub_id and cloud_name:
-        # Apply wig overlay using Cloudinary transformations
         result_url = apply_wig_overlay(user_pub, wig_pub_id, cloud_name)
+    elif wig_pub_id and cloud_name:
+        # No user photo public_id — just return the wig preview image
+        result_url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{wig_pub_id}"
     else:
-        # Fallback — return original picture URL
-        result_url = pic.get("file_path")
+        result_url = pic.get("file_path", "")
+
+    # Make sure result_url is never None
+    if not result_url:
+        result_url = ""
 
     new_id  = abs(hash(f"{user_picture_id}_style_{style_id}")) % 1000000
     new_pic = {**pic, "id": new_id, "file_path": result_url}
@@ -246,3 +250,18 @@ def discard_changes(original_picture_id: int):
 @app.get("/history/latest")
 def get_latest_history():
     return {"history_entry": None, "current_picture": None, "original_picture": None}
+
+@app.get("/pictures/register")
+def register_picture(picture_id: int, url: str, public_id: str):
+    """Re-register a picture from Firestore after server restart"""
+    pictures_store[picture_id] = {
+        "id":           picture_id,
+        "file_name":    "photo.jpg",
+        "file_path":    url,
+        "public_id":    public_id,
+        "file_size":    "0",
+        "height":       None,
+        "width":        None,
+        "date_created": ""
+    }
+    return {"status": "registered", "picture_id": picture_id}

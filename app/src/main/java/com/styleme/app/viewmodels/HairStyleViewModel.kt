@@ -56,38 +56,44 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
             if (MockRepository.enabled) {
                 MockRepository.fakeLongDelay(2500)
                 val model = MockRepository.fakeModelPictures.find { it.id == modelPictureId }
-                val newPic = MockRepository.makeFakePicture("style_${model?.hairStyleId}.jpg")
-                updatedPictureId.value = newPic.id
                 _changeResult.value = Resource.Success(
                     MockRepository.makeStyleBitmap(model?.hairStyleId)
                 )
                 return@launch
             }
             try {
-                val response = ApiClient.picturesApi.changeHairStyle(userPictureId, modelPictureId)
-                if (response.isSuccessful) {
-                    val body       = response.body()!!
-                    val resultUrl  = body.currentPicture?.filePath
-                    val newPicId   = body.currentPicture?.id ?: userPictureId
+                // Get picture data from Firestore first
+                val doc = withContext(Dispatchers.IO) {
+                    Firebase.firestore
+                        .collection("pictures")
+                        .document(userPictureId.toString())
+                        .get()
+                        .await()
+                }
 
-                    updatedPictureId.value = newPicId
+                val pictureUrl = doc.getString("url")
+                val publicId   = doc.getString("public_id")
 
-                    if (!resultUrl.isNullOrBlank()) {
-                        // Save to Firestore for persistence
+                // Re-register picture on server if needed
+                if (!publicId.isNullOrBlank()) {
+                    try {
                         withContext(Dispatchers.IO) {
-                            Firebase.firestore.collection("pictures")
-                                .document(newPicId.toString())
-                                .set(mapOf(
-                                    "id"           to newPicId,
-                                    "url"          to resultUrl,
-                                    "public_id"    to (body.currentPicture?.filePath
-                                        ?.let { CloudinaryManager.extractPublicId(it) } ?: ""),
-                                    "file_name"    to "hair_style_result.jpg",
-                                    "date_created" to System.currentTimeMillis()
-                                )).await()
+                            ApiClient.picturesApi.registerPicture(
+                                userPictureId, pictureUrl ?: "", publicId
+                            )
                         }
+                    } catch (e: Exception) {
+                        // Ignore — server will use fallback
+                    }
+                }
 
-                        // Load the wig overlay result image
+                // Now call change hair style
+                val response = ApiClient.picturesApi
+                    .changeHairStyle(userPictureId, modelPictureId)
+
+                if (response.isSuccessful) {
+                    val resultUrl = response.body()?.currentPicture?.filePath
+                    if (!resultUrl.isNullOrBlank()) {
                         val bitmap = withContext(Dispatchers.IO) {
                             com.bumptech.glide.Glide
                                 .with(getApplication<Application>())
@@ -96,12 +102,32 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
                                 .submit()
                                 .get()
                         }
+                        val newPicId = response.body()?.currentPicture?.id ?: userPictureId
+                        updatedPictureId.value = newPicId
+
+                        // Save result to Firestore
+                        withContext(Dispatchers.IO) {
+                            Firebase.firestore.collection("pictures")
+                                .document(newPicId.toString())
+                                .set(mapOf(
+                                    "id"           to newPicId,
+                                    "url"          to resultUrl,
+                                    "public_id"    to (publicId ?: ""),
+                                    "file_name"    to "style_result.jpg",
+                                    "date_created" to System.currentTimeMillis()
+                                )).await()
+                        }
+
                         _changeResult.value = Resource.Success(bitmap)
                     } else {
-                        _changeResult.value = Resource.Error("No result image returned")
+                        _changeResult.value = Resource.Error(
+                            "No result image returned from server"
+                        )
                     }
                 } else {
-                    _changeResult.value = Resource.Error("Failed to change style (${response.code()})")
+                    _changeResult.value = Resource.Error(
+                        "Failed (${response.code()})"
+                    )
                 }
             } catch (e: Exception) {
                 Timber.e(e)

@@ -53,6 +53,7 @@ object ApiClient {
             .create(UsersApiService::class.java)
     }
 
+
     val picturesApi: PicturesApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BuildConfig.BASE_URL_PICTURES)
@@ -61,6 +62,7 @@ object ApiClient {
             .build()
             .create(PicturesApiService::class.java)
     }
+
     interface PicturesApiService {
 
         @Multipart
@@ -107,5 +109,12 @@ object ApiClient {
 
         @GET("history/latest")
         suspend fun getLatestHistory(): Response<LatestHistoryResponse>
+
+        @GET("pictures/register")
+        suspend fun registerPicture(
+            @Query("picture_id") pictureId: Int,
+            @Query("url") url: String,
+            @Query("public_id") publicId: String
+        ): Response<Unit>
     }
 }
