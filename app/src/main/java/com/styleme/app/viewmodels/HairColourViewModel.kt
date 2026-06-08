@@ -20,6 +20,7 @@ import com.styleme.app.models.HairColour
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 class HairColourViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -47,9 +48,12 @@ class HairColourViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+
     fun changeHairColour(pictureId: Int, colour: HairColour) {
         _changeResult.value = Resource.Loading
         viewModelScope.launch {
+
+            // ── Mock mode ─────────────────────────────────────────────────────────
             if (MockRepository.enabled) {
                 MockRepository.fakeLongDelay(2000)
                 val colorInt = try {
@@ -57,9 +61,7 @@ class HairColourViewModel(application: Application) : AndroidViewModel(applicati
                         if (colour.colourHash.startsWith("#")) colour.colourHash
                         else "#${colour.colourHash}"
                     )
-                } catch (e: Exception) {
-                    android.graphics.Color.GRAY
-                }
+                } catch (e: Exception) { android.graphics.Color.GRAY }
                 val label = colour.colourName
                     ?.replace('_', ' ')
                     ?.replaceFirstChar { it.uppercase() } ?: "Colour"
@@ -68,30 +70,68 @@ class HairColourViewModel(application: Application) : AndroidViewModel(applicati
                 )
                 return@launch
             }
-            // Get local API URL from settings
-            // Apply hair colour via Cloudinary — no local PC needed
-            val result = FirebaseRepository.changeHairColour(pictureId, colour)
 
-            when (result) {
-                is Resource.Success -> {
-                    val transformedUrl = result.data
+            // ── Real mode ─────────────────────────────────────────────────────────
+            try {
+                // 1 — Get picture public_id from Firestore
+                val doc = withContext(Dispatchers.IO) {
+                    Firebase.firestore
+                        .collection("pictures")
+                        .document(pictureId.toString())
+                        .get()
+                        .await()
+                }
 
-                    // Load transformed image from Cloudinary URL
-                    val bitmap = withContext(Dispatchers.IO) {
-                        com.bumptech.glide.Glide
-                            .with(getApplication<Application>())
-                            .asBitmap()
-                            .load(transformedUrl)
-                            .submit()
-                            .get()
-                    }
-                    updatedPictureId.value = pictureId
-                    _changeResult.value = Resource.Success(bitmap)
+                val publicId = doc.getString("public_id") ?: run {
+                    _changeResult.value = Resource.Error(
+                        "Picture not found. Please upload your photo again."
+                    )
+                    return@launch
                 }
-                is Resource.Error -> {
-                    _changeResult.value = Resource.Error(result.message)
+
+                // 2 — Parse hex colour to RGB
+                val hex = colour.colourHash.trimStart('#').padEnd(6, '0')
+                val r = hex.substring(0, 2).toInt(16)
+                val g = hex.substring(2, 4).toInt(16)
+                val b = hex.substring(4, 6).toInt(16)
+
+                // 3 — Build Cloudinary transformation URL
+                val transformedUrl = CloudinaryManager
+                    .applyHairColourTransformation(publicId, r, g, b)
+
+                // 4 — Load transformed image on IO thread
+                val bitmap = withContext(Dispatchers.IO) {
+                    com.bumptech.glide.Glide
+                        .with(getApplication<Application>())
+                        .asBitmap()
+                        .load(transformedUrl)
+                        .submit()
+                        .get()
                 }
-                else -> {}
+
+                // 5 — Save result to Firestore for persistence
+                val newPicId = abs(transformedUrl.hashCode())
+                withContext(Dispatchers.IO) {
+                    Firebase.firestore.collection("pictures")
+                        .document(newPicId.toString())
+                        .set(mapOf(
+                            "id"           to newPicId,
+                            "url"          to transformedUrl,
+                            "public_id"    to publicId,
+                            "file_name"    to "hair_colour_result.jpg",
+                            "date_created" to System.currentTimeMillis()
+                        )).await()
+                }
+
+                // 6 — Update state
+                updatedPictureId.value = newPicId
+                _changeResult.value = Resource.Success(bitmap)
+
+            } catch (e: Exception) {
+                Timber.e(e)
+                _changeResult.value = Resource.Error(
+                    e.localizedMessage ?: "Failed to change colour"
+                )
             }
         }
     }

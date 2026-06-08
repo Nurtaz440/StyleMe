@@ -19,6 +19,10 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.google.firebase.firestore.ktx.firestore
+import com.styleme.app.utils.CloudinaryManager
+import kotlinx.coroutines.tasks.await
+
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val picturesApi = ApiClient.picturesApi
@@ -44,41 +48,55 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             if (MockRepository.enabled) {
                 MockRepository.fakeLongDelay(1400)
-                val pic = MockRepository.makeFakePicture("my_photo.jpg")
+                val pic   = MockRepository.makeFakePicture("my_photo.jpg")
                 val shape = MockRepository.fakeFaceShapes.random()
-                currentPictureId.value = pic.id
+                currentPictureId.value  = pic.id
                 originalPictureId.value = pic.id
                 detectedFaceShape.value = shape
                 cachedBitmap = MockRepository.makePlaceholderBitmap(
                     0xFF7B4FBE.toInt(), "Your Photo\nFace: ${shape.label}"
                 )
                 _uploadState.value = Resource.Success(
-                    UploadPictureResponse(
-                        picture = pic,
-                        faceShape = shape,
-                        historyEntry = null,
-                        id = pic.id,
-                        fileName = pic.fileName,
-                        message = null
-                    )
+                    UploadPictureResponse(pic, shape, null, pic.id, pic.fileName, null)
                 )
                 _currentBitmap.value = Resource.Success(cachedBitmap)
                 return@launch
             }
-            // Upload to Firebase Storage
-            val result = FirebaseRepository.uploadPicture(uri)
-            if (result is Resource.Success) {
-                val body = result.data
-                currentPictureId.value = body.picture.id
-                originalPictureId.value = body.picture.id
-                detectedFaceShape.value = body.faceShape
-                _uploadState.value = Resource.Success(body)
-                // Load image from Firebase Storage URL
-                body.picture.filePath?.let { url ->
-                    loadPictureFromUrl(url)
+            try {
+                // 1 — Upload image to Cloudinary via Firebase Repository
+                val result = FirebaseRepository.uploadPicture(uri)
+                if (result is Resource.Success) {
+                    val body = result.data
+                    val pictureId  = body.picture.id
+                    val pictureUrl = body.picture.filePath
+                    val publicId   = CloudinaryManager.extractPublicId(pictureUrl ?: "")
+
+                    // 2 — Save to Firestore for persistence across server restarts
+                    // Save to Firestore with proper timestamp
+                    Firebase.firestore.collection("pictures")
+                        .document(pictureId.toString())
+                        .set(mapOf(
+                            "id"           to pictureId,
+                            "url"          to pictureUrl,
+                            "public_id"    to publicId,
+                            "file_name"    to body.fileName,
+                            "date_created" to System.currentTimeMillis()  // number, not string
+                        )).await()
+
+                    currentPictureId.value  = pictureId
+                    originalPictureId.value = pictureId
+                    detectedFaceShape.value = body.faceShape
+
+                    // 3 — Load the image from Cloudinary URL directly
+                    pictureUrl?.let { loadPictureFromUrl(it) }
+
+                    _uploadState.value = Resource.Success(body)
+                } else if (result is Resource.Error) {
+                    _uploadState.value = Resource.Error(result.message)
                 }
-            } else if (result is Resource.Error) {
-                _uploadState.value = Resource.Error(result.message)
+            } catch (e: Exception) {
+                Timber.e(e)
+                _uploadState.value = Resource.Error(e.localizedMessage ?: "Upload failed")
             }
         }
     }
@@ -108,21 +126,41 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun loadPicture(pictureId: Int) {
         _currentBitmap.value = Resource.Loading
         viewModelScope.launch {
+            if (MockRepository.enabled) {
+                MockRepository.fakeDelay(400)
+                _currentBitmap.value = Resource.Success(
+                    cachedBitmap ?: MockRepository.makePlaceholderBitmap(
+                        0xFF7B4FBE.toInt(), "Photo #$pictureId"
+                    )
+                )
+                return@launch
+            }
             try {
-                val r = picturesApi.getPictureFile(pictureId)
-                if (r.isSuccessful) {
-                    val bitmap = r.body()?.byteStream()
-                        ?.let { BitmapFactory.decodeStream(it) }
-                    _currentBitmap.value = if (bitmap != null)
-                        Resource.Success(bitmap)
-                    else
-                        Resource.Error("Failed to decode image")
+                // Always check Firestore first
+                val doc = withContext(Dispatchers.IO) {
+                    Firebase.firestore
+                        .collection("pictures")
+                        .document(pictureId.toString())
+                        .get()
+                        .await()
+                }
+
+                val url = doc.getString("url")
+
+                if (!url.isNullOrBlank()) {
+                    // Load from Cloudinary URL
+                    loadPictureFromUrl(url)
                 } else {
-                    _currentBitmap.value = Resource.Error("Could not load picture (${r.code()})")
+                    // Picture not in Firestore — user needs to upload again
+                    _currentBitmap.value = Resource.Error(
+                        "Photo not found. Please upload your photo again."
+                    )
                 }
             } catch (e: Exception) {
-                Log.e("HomeViewModel", "loadPicture failed", e)
-                _currentBitmap.value = Resource.Error(e.localizedMessage ?: "Error")
+                Timber.e(e)
+                _currentBitmap.value = Resource.Error(
+                    e.localizedMessage ?: "Failed to load picture"
+                )
             }
         }
     }
@@ -131,14 +169,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             if (MockRepository.enabled) return@launch
             try {
-                val r = picturesApi.getLatestHistory()
-                if (r.isSuccessful) {
-                    r.body()?.historyEntry?.let { entry ->
-                        currentPictureId.value = entry.pictureId
-                        originalPictureId.value = entry.originalPictureId
-                        entry.pictureId?.let { loadPicture(it) }
-                    }
+                val snapshot = withContext(Dispatchers.IO) {
+                    Firebase.firestore
+                        .collection("pictures")
+                        .get()
+                        .await()
                 }
+
+                if (snapshot.isEmpty) return@launch
+
+                // Find most recently uploaded picture
+                val doc = snapshot.documents.maxByOrNull {
+                    it.getLong("date_created") ?: 0L
+                } ?: return@launch
+
+                val picId = (doc.getLong("id") ?: 0).toInt()
+                val url   = doc.getString("url")
+
+                if (picId > 0 && !url.isNullOrBlank()) {
+                    currentPictureId.value  = picId
+                    originalPictureId.value = picId
+                    loadPictureFromUrl(url)
+                }
+
             } catch (e: Exception) {
                 Timber.e(e)
             }

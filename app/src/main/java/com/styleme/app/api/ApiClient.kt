@@ -30,53 +30,7 @@ interface UsersApiService {
 }
 
 
-interface PicturesApiService {
 
-    @Multipart
-    @POST("pictures")
-    suspend fun uploadPicture(
-        @Part file: MultipartBody.Part
-    ): Response<UploadPictureResponse>
-
-    @GET("pictures/file/{picture_id}")
-    suspend fun getPictureFile(
-        @Path("picture_id") pictureId: Int
-    ): Response<ResponseBody>
-
-    @GET("pictures/change_hair_colour/{picture_id}")
-    suspend fun changeHairColour(
-        @Path("picture_id") pictureId: Int,
-        @Query("colour") colour: String,
-        @Query("r") r: Int,
-        @Query("g") g: Int,
-        @Query("b") b: Int
-    ): Response<ChangeHairColourResponse>
-
-    @GET("pictures/change_hair_style")
-    suspend fun changeHairStyle(
-        @Query("user_picture_id")  userPictureId: Int,
-        @Query("model_picture_id") modelPictureId: Int
-    ): Response<ChangeHairStyleResponse>
-
-    @DELETE("pictures/discard_changes/{original_picture_id}")
-    suspend fun discardChanges(
-        @Path("original_picture_id") originalPictureId: Int
-    ): Response<DiscardChangesResponse>
-
-    @GET("model_pictures")
-    suspend fun getModelPictures(
-        @Query("skip")  skip:  Int = 0,
-        @Query("limit") limit: Int = 100
-    ): Response<List<ModelPicture>>
-
-    @GET("model_pictures/file/{model_picture_id}")
-    suspend fun getModelPictureFile(
-        @Path("model_picture_id") modelPictureId: Int
-    ): Response<ResponseBody>
-
-    @GET("history/latest")
-    suspend fun getLatestHistory(): Response<LatestHistoryResponse>
-}
 
 
 object ApiClient {
@@ -106,5 +60,52 @@ object ApiClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(PicturesApiService::class.java)
+    }
+    interface PicturesApiService {
+
+        @Multipart
+        @POST("pictures")
+        suspend fun uploadPicture(
+            @Part file: MultipartBody.Part
+        ): Response<UploadPictureResponse>
+
+        @GET("pictures/file/{picture_id}")
+        suspend fun getPictureFile(
+            @Path("picture_id") pictureId: Int
+        ): Response<okhttp3.ResponseBody>
+
+        @GET("pictures/change_hair_colour/{picture_id}")
+        suspend fun changeHairColour(
+            @Path("picture_id") pictureId: Int,
+            @Query("colour") colour: String,
+            @Query("r") r: Int,
+            @Query("g") g: Int,
+            @Query("b") b: Int
+        ): Response<ChangeHairColourResponse>
+
+        @GET("pictures/change_hair_style")
+        suspend fun changeHairStyle(
+            @Query("user_picture_id")  userPictureId: Int,
+            @Query("model_picture_id") modelPictureId: Int
+        ): Response<ChangeHairStyleResponse>
+
+        @DELETE("pictures/discard_changes/{original_picture_id}")
+        suspend fun discardChanges(
+            @Path("original_picture_id") originalPictureId: Int
+        ): Response<DiscardChangesResponse>
+
+        @GET("model_pictures")
+        suspend fun getModelPictures(
+            @Query("skip")  skip:  Int = 0,
+            @Query("limit") limit: Int = 100
+        ): Response<List<ModelPicture>>
+
+        @GET("model_pictures/file/{model_picture_id}")
+        suspend fun getModelPictureFile(
+            @Path("model_picture_id") modelPictureId: Int
+        ): Response<okhttp3.ResponseBody>
+
+        @GET("history/latest")
+        suspend fun getLatestHistory(): Response<LatestHistoryResponse>
     }
 }

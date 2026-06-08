@@ -2,10 +2,16 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import cloudinary
 import cloudinary.uploader
+import cloudinary.utils
 import os, random, uuid
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 cloudinary.config(
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", ""),
@@ -41,46 +47,58 @@ HAIR_COLOURS = [
 ]
 
 HAIR_STYLES = [
-    {"id": 1,  "name": "straight", "label": "Straight"},
-    {"id": 2,  "name": "wavy",     "label": "Wavy"},
-    {"id": 3,  "name": "curly",    "label": "Curly"},
-    {"id": 4,  "name": "coily",    "label": "Coily / Natural"},
-    {"id": 5,  "name": "bob",      "label": "Bob"},
-    {"id": 6,  "name": "pixie",    "label": "Pixie Cut"},
-    {"id": 7,  "name": "lob",      "label": "Long Bob"},
-    {"id": 8,  "name": "layered",  "label": "Layered"},
-    {"id": 9,  "name": "bangs",    "label": "Bangs / Fringe"},
-    {"id": 10, "name": "updo",     "label": "Updo / Bun"},
+    {"id": 1, "name": "short_textured", "label": "Short Textured"},
+    {"id": 2, "name": "long_straight",  "label": "Long Straight"},
+    {"id": 3, "name": "curly_long",     "label": "Curly Long"},
 ]
+
+# Map style id to Cloudinary public_id of wig image
+# UPDATE THESE with your actual Cloudinary public IDs after uploading
+WIG_PUBLIC_IDS = {
+    1: "styleme/wigs/hair1",
+    2: "styleme/wigs/hair2",
+    3: "styleme/wigs/hair3",
+}
 
 MODEL_PICTURES = [
-    {"id": 1,  "file_name": "Straight Short",  "file_path": None, "hair_style_id": 1,  "face_shape_id": None, "hair_length_id": 1},
-    {"id": 2,  "file_name": "Wavy Medium",      "file_path": None, "hair_style_id": 2,  "face_shape_id": None, "hair_length_id": 2},
-    {"id": 3,  "file_name": "Curly Long",        "file_path": None, "hair_style_id": 3,  "face_shape_id": None, "hair_length_id": 3},
-    {"id": 4,  "file_name": "Coily Natural",     "file_path": None, "hair_style_id": 4,  "face_shape_id": None, "hair_length_id": 2},
-    {"id": 5,  "file_name": "Bob Short",         "file_path": None, "hair_style_id": 5,  "face_shape_id": None, "hair_length_id": 1},
-    {"id": 6,  "file_name": "Pixie Cut",         "file_path": None, "hair_style_id": 6,  "face_shape_id": None, "hair_length_id": 1},
-    {"id": 7,  "file_name": "Long Bob",          "file_path": None, "hair_style_id": 7,  "face_shape_id": None, "hair_length_id": 2},
-    {"id": 8,  "file_name": "Layered Long",      "file_path": None, "hair_style_id": 8,  "face_shape_id": None, "hair_length_id": 3},
-    {"id": 9,  "file_name": "Bangs Fringe",      "file_path": None, "hair_style_id": 9,  "face_shape_id": None, "hair_length_id": 2},
-    {"id": 10, "file_name": "Updo Bun",          "file_path": None, "hair_style_id": 10, "face_shape_id": None, "hair_length_id": 2},
+    {"id": 1, "file_name": "Short Textured", "file_path": None, "hair_style_id": 1, "face_shape_id": None, "hair_length_id": 1},
+    {"id": 2, "file_name": "Long Straight",  "file_path": None, "hair_style_id": 2, "face_shape_id": None, "hair_length_id": 3},
+    {"id": 3, "file_name": "Curly Long",     "file_path": None, "hair_style_id": 3, "face_shape_id": None, "hair_length_id": 3},
 ]
 
-# In-memory picture storage
 pictures_store = {}
 
 def make_placeholder_pic(picture_id: int):
-    """Create a placeholder when picture not found in memory (server restarted)"""
     return {
-        "id":           picture_id,
-        "file_name":    "photo.jpg",
-        "file_path":    None,
-        "public_id":    None,
-        "file_size":    "0",
-        "height":       None,
-        "width":        None,
-        "date_created": ""
+        "id": picture_id, "file_name": "photo.jpg",
+        "file_path": None, "public_id": None,
+        "file_size": "0", "height": None,
+        "width": None, "date_created": ""
     }
+
+def apply_wig_overlay(user_public_id: str, wig_public_id: str, cloud_name: str) -> str:
+    """
+    Use Cloudinary's overlay transformation to place wig on top of face.
+    Uses face detection (g_face) to position wig automatically.
+    """
+    # Encode the wig public_id for URL (replace / with :)
+    wig_layer = wig_public_id.replace("/", ":")
+
+    # Cloudinary transformation:
+    # 1. Detect face and crop to face area with padding
+    # 2. Overlay wig image centered on face, scaled to 130% of face width
+    # 3. Position wig at top of face (gravity north_face)
+    transformation = (
+        f"w_600,h_700,c_fill,g_face,z_0.8/"          # crop to face
+        f"l_{wig_layer},"                              # overlay wig layer
+        f"w_1.3,h_1.3,fl_relative,"                   # scale wig to 130% of base
+        f"g_north_face,y_-0.15,fl_layer_apply"        # position at top of face
+    )
+
+    return (
+        f"https://res.cloudinary.com/{cloud_name}"
+        f"/image/upload/{transformation}/{user_public_id}"
+    )
 
 @app.get("/health")
 def health():
@@ -100,7 +118,15 @@ def get_face_shapes():
 
 @app.get("/model_pictures")
 def get_model_pictures():
-    return MODEL_PICTURES
+    cloud = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+    result = []
+    for m in MODEL_PICTURES:
+        pic = dict(m)
+        wig_id = WIG_PUBLIC_IDS.get(m["hair_style_id"])
+        if wig_id and cloud:
+            pic["file_path"] = f"https://res.cloudinary.com/{cloud}/image/upload/{wig_id}"
+        result.append(pic)
+    return result
 
 @app.post("/pictures")
 async def upload_picture(file: UploadFile = File(...)):
@@ -151,9 +177,9 @@ def get_picture_file(picture_id: int):
 @app.get("/pictures/change_hair_colour/{picture_id}")
 def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
     pic = pictures_store.get(picture_id, make_placeholder_pic(picture_id))
-    public_id = pic.get("public_id")
+    public_id  = pic.get("public_id")
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
-    hex_color = f"{r:02X}{g:02X}{b:02X}"
+    hex_color  = f"{r:02X}{g:02X}{b:02X}"
 
     if public_id and cloud_name:
         transformed_url = (
@@ -163,12 +189,11 @@ def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
     else:
         transformed_url = pic.get("file_path")
 
-    new_id = abs(hash(f"{picture_id}_{colour}_{hex_color}")) % 1000000
+    new_id  = abs(hash(f"{picture_id}_{colour}_{hex_color}")) % 1000000
     new_pic = {**pic, "id": new_id, "file_path": transformed_url, "public_id": public_id}
     pictures_store[new_id] = new_pic
 
     hair_colour = next((c for c in HAIR_COLOURS if c["name"] == colour), None)
-
     return {
         "picture":       new_pic,
         "hair_colour":   hair_colour,
@@ -182,14 +207,25 @@ def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
 
 @app.get("/pictures/change_hair_style")
 def change_hair_style(user_picture_id: int, model_picture_id: int):
-    # Always succeeds - uses placeholder if picture not in memory
-    pic = pictures_store.get(user_picture_id, make_placeholder_pic(user_picture_id))
+    pic        = pictures_store.get(user_picture_id, make_placeholder_pic(user_picture_id))
+    user_pub   = pic.get("public_id")
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
 
-    new_id = abs(hash(f"{user_picture_id}_{model_picture_id}")) % 1000000
-    new_pic = {**pic, "id": new_id}
+    # Find which style was selected
+    model      = next((m for m in MODEL_PICTURES if m["id"] == model_picture_id), None)
+    style_id   = model["hair_style_id"] if model else model_picture_id
+    wig_pub_id = WIG_PUBLIC_IDS.get(style_id)
+
+    if user_pub and wig_pub_id and cloud_name:
+        # Apply wig overlay using Cloudinary transformations
+        result_url = apply_wig_overlay(user_pub, wig_pub_id, cloud_name)
+    else:
+        # Fallback — return original picture URL
+        result_url = pic.get("file_path")
+
+    new_id  = abs(hash(f"{user_picture_id}_style_{style_id}")) % 1000000
+    new_pic = {**pic, "id": new_id, "file_path": result_url}
     pictures_store[new_id] = new_pic
-
-    model = next((m for m in MODEL_PICTURES if m["id"] == model_picture_id), None)
 
     return {
         "current_picture":  new_pic,
@@ -198,7 +234,7 @@ def change_hair_style(user_picture_id: int, model_picture_id: int):
             "id":                  abs(hash(str(uuid.uuid4()))) % 1000000,
             "picture_id":          new_id,
             "original_picture_id": user_picture_id,
-            "hair_style_id":       model["hair_style_id"] if model else model_picture_id
+            "hair_style_id":       style_id
         }
     }
 
