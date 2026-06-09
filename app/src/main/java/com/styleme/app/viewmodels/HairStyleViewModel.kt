@@ -62,7 +62,7 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
             try {
-                // Get picture data from Firestore first
+                // Step 1: Get picture data from Firestore
                 val doc = withContext(Dispatchers.IO) {
                     Firebase.firestore
                         .collection("pictures")
@@ -71,34 +71,38 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
                         .await()
                 }
 
-                val pictureUrl = doc.getString("url")
-                val publicId   = doc.getString("public_id")
+                val pictureUrl = doc.getString("url") ?: ""
+                val publicId   = doc.getString("public_id") ?: ""
 
-                // Re-register picture on server if needed
-                if (!publicId.isNullOrBlank()) {
-                    try {
-                        withContext(Dispatchers.IO) {
-                            ApiClient.picturesApi.registerPicture(
-                                userPictureId, pictureUrl ?: "", publicId
-                            )
-                        }
-                    } catch (e: Exception) {
-                        // Ignore — server will use fallback
-                    }
+                if (publicId.isBlank()) {
+                    _changeResult.value = Resource.Error(
+                        "Please upload your photo from the Home screen first"
+                    )
+                    return@launch
                 }
 
-                // Now call change hair style
-                val response = ApiClient.picturesApi
-                    .changeHairStyle(userPictureId, modelPictureId)
+                // Step 2: Register picture on server so it has public_id
+                withContext(Dispatchers.IO) {
+                    ApiClient.picturesApi.registerPicture(
+                        userPictureId, pictureUrl, publicId
+                    )
+                }
+
+                // Step 3: Apply wig overlay
+                val response = withContext(Dispatchers.IO) {
+                    ApiClient.picturesApi.changeHairStyle(userPictureId, modelPictureId)
+                }
 
                 if (response.isSuccessful) {
                     val resultUrl = response.body()?.currentPicture?.filePath
+
                     if (!resultUrl.isNullOrBlank()) {
                         val bitmap = withContext(Dispatchers.IO) {
                             com.bumptech.glide.Glide
                                 .with(getApplication<Application>())
                                 .asBitmap()
                                 .load(resultUrl)
+                                .timeout(30000)
                                 .submit()
                                 .get()
                         }
@@ -112,7 +116,7 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
                                 .set(mapOf(
                                     "id"           to newPicId,
                                     "url"          to resultUrl,
-                                    "public_id"    to (publicId ?: ""),
+                                    "public_id"    to publicId,
                                     "file_name"    to "style_result.jpg",
                                     "date_created" to System.currentTimeMillis()
                                 )).await()
@@ -121,17 +125,19 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
                         _changeResult.value = Resource.Success(bitmap)
                     } else {
                         _changeResult.value = Resource.Error(
-                            "No result image returned from server"
+                            "Server returned empty result"
                         )
                     }
                 } else {
                     _changeResult.value = Resource.Error(
-                        "Failed (${response.code()})"
+                        "Server error: ${response.code()}"
                     )
                 }
             } catch (e: Exception) {
                 Timber.e(e)
-                _changeResult.value = Resource.Error(e.localizedMessage ?: "Error")
+                _changeResult.value = Resource.Error(
+                    e.localizedMessage ?: "Failed to change style"
+                )
             }
         }
     }

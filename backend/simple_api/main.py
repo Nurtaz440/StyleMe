@@ -78,23 +78,26 @@ def make_placeholder_pic(picture_id: int):
 
 def apply_wig_overlay(user_public_id: str, wig_public_id: str, cloud_name: str) -> str:
     """
-    Overlay wig PNG on user photo using Cloudinary transformations.
-    Uses simple, valid transformation syntax.
+    Overlay wig PNG on top of user face photo.
+    Steps:
+    1. Resize user photo to standard size
+    2. Detect face and overlay wig at top of face
     """
-    # Replace slashes with colons for Cloudinary layer syntax
+    # Encode wig public_id for layer syntax (/ becomes :)
     wig_layer = wig_public_id.replace("/", ":")
 
-    # Simple valid transformation — overlay wig centered on top
-    transformation = (
-        f"w_500,h_600,c_fill,g_face/"
-        f"l_{wig_layer},w_500,h_300,c_fit,g_north,y_0,fl_layer_apply"
-    )
+    # Build transformation step by step
+    # Step 1: Resize base image
+    # Step 2: Overlay wig - position at top of image covering head area
+    transformation = "/".join([
+        "w_600,h_800,c_fill,g_face,z_0.6",           # zoom out to show full face
+        f"l_{wig_layer},w_600,c_fit,g_north,y_0,fl_layer_apply",  # place wig at top
+    ])
 
-    url = (
+    return (
         f"https://res.cloudinary.com/{cloud_name}"
         f"/image/upload/{transformation}/{user_public_id}"
     )
-    return url
 
 @app.get("/health")
 def health():

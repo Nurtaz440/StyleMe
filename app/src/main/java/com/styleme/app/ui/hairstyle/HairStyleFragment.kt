@@ -62,24 +62,22 @@ class HairStyleFragment : Fragment() {
                     binding.progressBar.visible()
                     binding.tvStatus.text = "Applying hair style… please wait"
                     binding.tvStatus.visible()
+                    binding.ivResult.gone()
                 }
                 is Resource.Success -> {
                     binding.progressBar.gone()
                     binding.tvStatus.gone()
-                    state.data?.let {
-                        binding.ivResult.setImageBitmap(it)
+                    state.data?.let { bitmap ->
+                        binding.ivResult.setImageBitmap(bitmap)
                         binding.ivResult.visible()
-                        homeViewModel.cachedBitmap = it
-                        // push to homeViewModel so HomeFragment updates too
-                        homeViewModel.currentBitmap.value?.let { _ ->  }
+                        // Scroll to top to show result
+                        binding.root.scrollTo(0, 0)
                     }
                     viewModel.updatedPictureId.value?.let {
                         homeViewModel.currentPictureId.value = it
-                        requireContext()
-                            .getSharedPreferences("StyleMePrefs", android.content.Context.MODE_PRIVATE)
-                            .edit().putInt("current_picture_id", it).apply()
+                        homeViewModel.cachedBitmap = state.data
                     }
-                    toast("Hair style applied!")
+                    toast("Hair style applied! ✅")
                 }
                 is Resource.Error -> {
                     binding.progressBar.gone()

@@ -21,8 +21,8 @@
     <ImageView
         android:id="@+id/iv_result"
         android:layout_width="0dp"
-        android:layout_height="220dp"
-        android:scaleType="centerInside"
+        android:layout_height="350dp"
+        android:scaleType="fitCenter"
         android:visibility="gone"
         android:background="@color/surface"
         app:layout_constraintTop_toBottomOf="@id/tv_title"
