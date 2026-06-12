@@ -76,23 +76,45 @@ def make_placeholder_pic(picture_id: int):
         "width": None, "date_created": ""
     }
 
-def apply_wig_overlay(user_public_id: str, wig_public_id: str, cloud_name: str) -> str:
-    """
-    Overlay wig PNG on top of user face photo.
-    Steps:
-    1. Resize user photo to standard size
-    2. Detect face and overlay wig at top of face
-    """
-    # Encode wig public_id for layer syntax (/ becomes :)
-    wig_layer = wig_public_id.replace("/", ":")
+# Per-style overlay tuning. Each wig PNG has a different "face hole" shape /
+# hairline coverage, so the scale (relative to detected face width) and the
+# vertical offset (relative to face height, gravity = face center) need to be
+# tuned per style for a natural fit.
+#   - hollow wigs (curly/long, with an open face area) -> wider scale, small
+#     positive y so the face sits inside the opening
+#   - solid wigs (short/topper, no face hole) -> smaller scale, negative y to
+#     shift the hair up onto the forehead/scalp instead of over the face
+WIG_OVERLAY_PARAMS = {
+    1: {"w": 1.15, "y": 0.03},   # Short Textured -> hair1 (curly, hollow)
+    2: {"w": 1.05, "y": -0.12},  # Long Straight  -> hair2 (solid topper)
+    3: {"w": 1.0,  "y": 0.05},   # Curly Long     -> hair3 (long, hollow)
+}
+DEFAULT_WIG_PARAMS = {"w": 1.1, "y": 0.0}
 
-    # Build transformation step by step
-    # Step 1: Resize base image
-    # Step 2: Overlay wig - position at top of image covering head area
-    transformation = "/".join([
-        "w_600,h_800,c_fill,g_face,z_0.6",           # zoom out to show full face
-        f"l_{wig_layer},w_600,c_fit,g_north,y_0,fl_layer_apply",  # place wig at top
-    ])
+
+def apply_wig_overlay(user_public_id: str, wig_public_id: str, cloud_name: str, style_id: int = 0) -> str:
+    """
+    Overlay a wig PNG onto the user's face photo using Cloudinary's
+    face-detection gravity.
+
+    - e_make_transparent strips the wig's white background so only the hair
+      pixels are composited (no white box over the face).
+    - fl_relative + g_face scales the wig relative to the *detected face
+      width* in the user's photo, so it adapts to the size of the head
+      instead of using a fixed pixel size.
+    - g_face on the overlay also centers it on the detected face; y_ shifts
+      it up/down (per-style) so hollow wigs frame the face and solid wigs
+      sit on top of the head.
+    - fl_no_overflow keeps the composited image the same size as the
+      original photo (no extra white canvas).
+    """
+    wig_layer = wig_public_id.replace("/", ":")
+    params = WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_WIG_PARAMS)
+
+    transformation = (
+        f"l_{wig_layer},e_make_transparent:30,fl_relative,fl_no_overflow,"
+        f"w_{params['w']},g_face,y_{params['y']},fl_layer_apply"
+    )
 
     return (
         f"https://res.cloudinary.com/{cloud_name}"
@@ -215,7 +237,7 @@ def change_hair_style(user_picture_id: int, model_picture_id: int):
     wig_pub_id = WIG_PUBLIC_IDS.get(style_id)
 
     if user_pub and wig_pub_id and cloud_name:
-        result_url = apply_wig_overlay(user_pub, wig_pub_id, cloud_name)
+        result_url = apply_wig_overlay(user_pub, wig_pub_id, cloud_name, style_id)
     elif wig_pub_id and cloud_name:
         # No user photo public_id — just return the wig preview image
         result_url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{wig_pub_id}"
@@ -264,16 +286,12 @@ def register_picture(picture_id: int, url: str, public_id: str):
         "date_created": ""
     }
     return {"status": "registered", "picture_id": picture_id}
-WIG_PUBLIC_IDS = {
-    1: "styleme/wigs/hair1",  # hair1.png
-    2: "styleme/wigs/hair2",  # hair2.png
-    3: "styleme/wigs/hair3",  # hair3.png
-}
+
 @app.get("/test/wig_url")
 def test_wig_url(user_public_id: str, style_id: int = 1):
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
     wig_pub_id = WIG_PUBLIC_IDS.get(style_id, "")
     if not wig_pub_id or not cloud_name:
         return {"error": "Missing config", "cloud_name": cloud_name, "wig_pub_id": wig_pub_id}
-    url = apply_wig_overlay(user_public_id, wig_pub_id, cloud_name)
+    url = apply_wig_overlay(user_public_id, wig_pub_id, cloud_name, style_id)
     return {"url": url, "user_public_id": user_public_id, "wig_pub_id": wig_pub_id}
