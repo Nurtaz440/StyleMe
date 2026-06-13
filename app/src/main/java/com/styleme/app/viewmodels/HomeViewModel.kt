@@ -12,7 +12,6 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.firestore
 import com.styleme.app.api.ApiClient
-import com.styleme.app.firebase.FirebaseRepository
 import com.styleme.app.models.*
 import com.styleme.app.utils.*
 import kotlinx.coroutines.launch
@@ -20,8 +19,10 @@ import timber.log.Timber
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.google.firebase.firestore.ktx.firestore
-import com.styleme.app.utils.CloudinaryManager
 import kotlinx.coroutines.tasks.await
+import okhttp3.MultipartBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -63,42 +64,43 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             try {
-                // 1 — Upload image to Cloudinary via Firebase Repository
-                val result = FirebaseRepository.uploadPicture(uri)
-                if (result is Resource.Success) {
-                    val body = result.data
-                    val pictureId  = body.picture.id
-                    val pictureUrl = body.picture.filePath
-                    val publicId   = CloudinaryManager.extractPublicId(pictureUrl ?: "")
+                // 1 — Upload the photo directly to the pictures API (multipart).
+                //     The server stores it (Cloudinary under the hood) and hands
+                //     back a picture id + a ready-to-display URL — no client-side
+                //     CloudinaryManager / Firebase involved.
+                val part = withContext(Dispatchers.IO) { uriToMultipart(uri) }
+                val response = withContext(Dispatchers.IO) {
+                    picturesApi.uploadPicture(part)
+                }
 
-                    // 2 — Save to Firestore for persistence across server restarts
-                    // Save to Firestore with proper timestamp
-                    Firebase.firestore.collection("pictures")
-                        .document(pictureId.toString())
-                        .set(mapOf(
-                            "id"           to pictureId,
-                            "url"          to pictureUrl,
-                            "public_id"    to publicId,
-                            "file_name"    to body.fileName,
-                            "date_created" to System.currentTimeMillis()  // number, not string
-                        )).await()
+                if (response.isSuccessful && response.body() != null) {
+                    val body = response.body()!!
 
-                    currentPictureId.value  = pictureId
-                    originalPictureId.value = pictureId
+                    currentPictureId.value  = body.picture.id
+                    originalPictureId.value = body.picture.id
                     detectedFaceShape.value = body.faceShape
 
-                    // 3 — Load the image from Cloudinary URL directly
-                    pictureUrl?.let { loadPictureFromUrl(it) }
+                    // 2 — Load the returned image straight away
+                    body.picture.filePath?.let { loadPictureFromUrl(it) }
 
                     _uploadState.value = Resource.Success(body)
-                } else if (result is Resource.Error) {
-                    _uploadState.value = Resource.Error(result.message)
+                } else {
+                    _uploadState.value = Resource.Error("Upload failed (${response.code()})")
                 }
             } catch (e: Exception) {
                 Timber.e(e)
                 _uploadState.value = Resource.Error(e.localizedMessage ?: "Upload failed")
             }
         }
+    }
+
+    /** Read the picked image into a multipart "file" part for the pictures API. */
+    private fun uriToMultipart(uri: Uri): MultipartBody.Part {
+        val context = getApplication<Application>()
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: throw IllegalStateException("Could not read selected image")
+        val requestBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+        return MultipartBody.Part.createFormData("file", "photo.jpg", requestBody)
     }
 
     fun loadPictureFromUrl(url: String) {

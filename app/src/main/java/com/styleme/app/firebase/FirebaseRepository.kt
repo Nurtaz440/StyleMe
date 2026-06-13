@@ -3,7 +3,6 @@ package com.styleme.app.firebase
 import android.net.Uri
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.google.firebase.storage.ktx.storage
 import com.styleme.app.models.*
 import com.styleme.app.utils.CloudinaryManager
 import com.styleme.app.utils.Resource
@@ -13,8 +12,7 @@ import java.util.UUID
 
 object FirebaseRepository {
 
-    private val db      = Firebase.firestore
-    private val storage = Firebase.storage
+    private val db = Firebase.firestore
 
     // ── Hair Colours ──────────────────────────────────────────────────────────
 
@@ -50,21 +48,27 @@ object FirebaseRepository {
         Timber.e(e); Resource.Error(e.localizedMessage ?: "Failed to load styles")
     }
 
-    // ── Upload Picture to Firebase Storage ────────────────────────────────────
+    // ── Upload Picture to Cloudinary ──────────────────────────────────────────
+    // IMPORTANT: hair-colour/hair-style transformations (Cloudinary URL-based
+    // overlays, e_colorize, etc.) require a real Cloudinary public_id. Firebase
+    // Storage download URLs do NOT contain "/upload/" so
+    // CloudinaryManager.extractPublicId() can't derive a usable id from them —
+    // any transformation built on top of that bogus id 400s. Upload straight
+    // to Cloudinary instead, so the public_id is always valid.
 
     suspend fun uploadPicture(uri: Uri): Resource<UploadPictureResponse> = try {
         val pictureId = UUID.randomUUID().toString()
-        val ref = storage.reference.child("pictures/$pictureId.jpg")
 
-        // Upload to Firebase Storage
-        ref.putFile(uri).await()
-        val downloadUrl = ref.downloadUrl.await().toString()
+        // Upload to Cloudinary (returns the secure_url of the stored image)
+        val downloadUrl = CloudinaryManager.uploadImage(uri)
+        val publicId = CloudinaryManager.extractPublicId(downloadUrl)
 
         // Save metadata to Firestore
         val pictureData = hashMapOf(
             "id"           to pictureId,
             "file_name"    to "$pictureId.jpg",
             "file_path"    to downloadUrl,
+            "public_id"    to publicId,
             "date_created" to System.currentTimeMillis()
         )
         db.collection("pictures").document(pictureId).set(pictureData).await()

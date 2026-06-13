@@ -11,11 +11,7 @@ import com.styleme.app.models.*
 import com.styleme.app.utils.*
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
-import com.styleme.app.utils.CloudinaryManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 class HairStyleViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -62,33 +58,11 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
             try {
-                // Step 1: Get picture data from Firestore
-                val doc = withContext(Dispatchers.IO) {
-                    Firebase.firestore
-                        .collection("pictures")
-                        .document(userPictureId.toString())
-                        .get()
-                        .await()
-                }
-
-                val pictureUrl = doc.getString("url") ?: ""
-                val publicId   = doc.getString("public_id") ?: ""
-
-                if (publicId.isBlank()) {
-                    _changeResult.value = Resource.Error(
-                        "Please upload your photo from the Home screen first"
-                    )
-                    return@launch
-                }
-
-                // Step 2: Register picture on server so it has public_id
-                withContext(Dispatchers.IO) {
-                    ApiClient.picturesApi.registerPicture(
-                        userPictureId, pictureUrl, publicId
-                    )
-                }
-
-                // Step 3: Apply wig overlay
+                // The picture was already uploaded to the pictures API on the
+                // Home screen (HomeViewModel.uploadPicture), so the server
+                // already knows userPictureId -> Cloudinary public_id.
+                // Just ask it to overlay the chosen wig — no Firestore /
+                // CloudinaryManager round-trip needed.
                 val response = withContext(Dispatchers.IO) {
                     ApiClient.picturesApi.changeHairStyle(userPictureId, modelPictureId)
                 }
@@ -108,20 +82,6 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                         val newPicId = response.body()?.currentPicture?.id ?: userPictureId
                         updatedPictureId.value = newPicId
-
-                        // Save result to Firestore
-                        withContext(Dispatchers.IO) {
-                            Firebase.firestore.collection("pictures")
-                                .document(newPicId.toString())
-                                .set(mapOf(
-                                    "id"           to newPicId,
-                                    "url"          to resultUrl,
-                                    "public_id"    to publicId,
-                                    "file_name"    to "style_result.jpg",
-                                    "date_created" to System.currentTimeMillis()
-                                )).await()
-                        }
-
                         _changeResult.value = Resource.Success(bitmap)
                     } else {
                         _changeResult.value = Resource.Error(
