@@ -89,9 +89,9 @@ def make_placeholder_pic(picture_id: int):
 #     edge, as a fraction of the face height (negative = higher / more
 #     forehead & scalp coverage)
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.5,  "y": -0.55},  # Short Textured -> hair2 (solid topper)
+    1: {"w": 1.4,  "y": -0.30},  # Short Textured -> hair2 (solid topper)
     2: {"w": 1.5,  "y": -0.35},  # Long Straight  -> hair3 (long, hollow)
-    3: {"w": 1.7,  "y": -0.45},  # Curly Long     -> hair1 (curly, hollow)
+    3: {"w": 1.6,  "y": -0.28},  # Curly Long     -> hair1 (curly, hollow)
 }
 DEFAULT_WIG_PARAMS = {"w": 1.5, "y": -0.4}
 
