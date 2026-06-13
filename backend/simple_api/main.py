@@ -81,44 +81,54 @@ def make_placeholder_pic(picture_id: int):
     }
 
 # Per-style overlay tuning. Each wig PNG has a different "face hole" shape /
-# hairline coverage, so the scale (relative to detected face width) and the
-# vertical offset (relative to face height, gravity = face center) need to be
-# tuned per style for a natural fit.
-#   - hollow wigs (curly/long, with an open face area) -> wider scale, small
-#     positive y so the face sits inside the opening
-#   - solid wigs (short/topper, no face hole) -> smaller scale, negative y to
-#     shift the hair up onto the forehead/scalp instead of over the face
+# hairline coverage, so the scale (relative to the *detected face box*) and
+# the vertical offset (relative to face height, measured from the top of the
+# face box) need to be tuned per style for a natural fit.
+#   - "w" is the overlay width as a multiple of the detected face width
+#   - "y" is how far the overlay's top edge sits above the face box's top
+#     edge, as a fraction of the face height (negative = higher / more
+#     forehead & scalp coverage)
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.0,  "y": -0.30},  # Short Textured -> hair2 (solid topper)
-    2: {"w": 0.95, "y": -0.05},  # Long Straight  -> hair3 (long, hollow)
-    3: {"w": 1.1,  "y": -0.10},  # Curly Long     -> hair1 (curly, hollow)
+    1: {"w": 1.5,  "y": -0.55},  # Short Textured -> hair2 (solid topper)
+    2: {"w": 1.5,  "y": -0.35},  # Long Straight  -> hair3 (long, hollow)
+    3: {"w": 1.7,  "y": -0.45},  # Curly Long     -> hair1 (curly, hollow)
 }
-DEFAULT_WIG_PARAMS = {"w": 1.1, "y": 0.0}
+DEFAULT_WIG_PARAMS = {"w": 1.5, "y": -0.4}
 
 
-def apply_wig_overlay(user_public_id: str, wig_public_id: str, cloud_name: str, style_id: int = 0) -> str:
+def apply_wig_overlay(user_public_id: str, wig_public_id: str, cloud_name: str,
+                       style_id: int = 0, face=None) -> str:
     """
-    Overlay a wig PNG onto the user's face photo using Cloudinary's
-    face-detection gravity.
+    Overlay a wig PNG onto the user's face photo.
 
     - e_make_transparent strips the wig's white background so only the hair
       pixels are composited (no white box over the face).
-    - fl_relative + g_face scales the wig relative to the *detected face
-      width* in the user's photo, so it adapts to the size of the head
-      instead of using a fixed pixel size.
-    - g_face on the overlay also centers it on the detected face; y_ shifts
-      it up/down (per-style) so hollow wigs frame the face and solid wigs
-      sit on top of the head.
+    - If a detected face bounding box (x, y, width, height in pixels) is
+      available, the overlay is sized as a multiple of the face width and
+      positioned with absolute pixel offsets (g_north_west) so it lines up
+      with the actual face regardless of where it is in the photo.
+    - Falls back to Cloudinary's g_face gravity (less reliable, but works
+      without a stored face box) if no face was detected at upload time.
     - fl_no_overflow keeps the composited image the same size as the
       original photo (no extra white canvas).
     """
     wig_layer = wig_public_id.replace("/", ":")
     params = WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_WIG_PARAMS)
 
-    transformation = (
-        f"l_{wig_layer},e_make_transparent:30,fl_relative,fl_no_overflow,"
-        f"w_{params['w']},g_face,y_{params['y']},fl_layer_apply"
-    )
+    if face:
+        fx, fy, fw, fh = face[:4]
+        overlay_w = round(fw * params["w"])
+        x = round(fx + fw / 2 - overlay_w / 2)
+        y = round(fy + params["y"] * fh)
+        transformation = (
+            f"l_{wig_layer},e_make_transparent:30,"
+            f"w_{overlay_w},x_{x},y_{y},g_north_west,fl_no_overflow,fl_layer_apply"
+        )
+    else:
+        transformation = (
+            f"l_{wig_layer},e_make_transparent:30,fl_relative,fl_no_overflow,"
+            f"w_{params['w']},g_face,y_{params['y']},fl_layer_apply"
+        )
 
     return (
         f"https://res.cloudinary.com/{cloud_name}"
@@ -160,8 +170,10 @@ async def upload_picture(file: UploadFile = File(...)):
         result = cloudinary.uploader.upload(
             contents,
             folder="styleme/user_photos",
-            resource_type="image"
+            resource_type="image",
+            faces=True
         )
+        faces = result.get("faces") or []
         picture_id = abs(hash(result["public_id"])) % 1000000
         picture = {
             "id":           picture_id,
@@ -171,7 +183,8 @@ async def upload_picture(file: UploadFile = File(...)):
             "file_size":    str(result.get("bytes", 0)),
             "height":       result.get("height"),
             "width":        result.get("width"),
-            "date_created": str(result.get("created_at", ""))
+            "date_created": str(result.get("created_at", "")),
+            "face":         faces[0] if faces else None
         }
         pictures_store[picture_id] = picture
         face_shape = random.choice(FACE_SHAPES)
@@ -241,7 +254,7 @@ def change_hair_style(user_picture_id: int, model_picture_id: int):
     wig_pub_id = WIG_PUBLIC_IDS.get(style_id)
 
     if user_pub and wig_pub_id and cloud_name:
-        result_url = apply_wig_overlay(user_pub, wig_pub_id, cloud_name, style_id)
+        result_url = apply_wig_overlay(user_pub, wig_pub_id, cloud_name, style_id, pic.get("face"))
     elif wig_pub_id and cloud_name:
         # No user photo public_id — just return the wig preview image
         result_url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{wig_pub_id}"
@@ -292,10 +305,15 @@ def register_picture(picture_id: int, url: str, public_id: str):
     return {"status": "registered", "picture_id": picture_id}
 
 @app.get("/test/wig_url")
-def test_wig_url(user_public_id: str, style_id: int = 1):
+def test_wig_url(user_public_id: str, style_id: int = 1,
+                  face_x: int = None, face_y: int = None,
+                  face_w: int = None, face_h: int = None):
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
     wig_pub_id = WIG_PUBLIC_IDS.get(style_id, "")
     if not wig_pub_id or not cloud_name:
         return {"error": "Missing config", "cloud_name": cloud_name, "wig_pub_id": wig_pub_id}
-    url = apply_wig_overlay(user_public_id, wig_pub_id, cloud_name, style_id)
-    return {"url": url, "user_public_id": user_public_id, "wig_pub_id": wig_pub_id}
+    face = None
+    if None not in (face_x, face_y, face_w, face_h):
+        face = [face_x, face_y, face_w, face_h]
+    url = apply_wig_overlay(user_public_id, wig_pub_id, cloud_name, style_id, face)
+    return {"url": url, "user_public_id": user_public_id, "wig_pub_id": wig_pub_id, "face": face}
