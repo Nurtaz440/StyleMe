@@ -89,9 +89,9 @@ def make_placeholder_pic(picture_id: int):
 #   - solid wigs (short/topper, no face hole) -> smaller scale, negative y to
 #     shift the hair up onto the forehead/scalp instead of over the face
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.05, "y": -0.12},  # Short Textured -> hair2 (solid topper)
-    2: {"w": 1.0,  "y": 0.05},   # Long Straight  -> hair3 (long, hollow)
-    3: {"w": 1.15, "y": 0.03},   # Curly Long     -> hair1 (curly, hollow)
+    1: {"w": 1.0,  "y": -0.30},  # Short Textured -> hair2 (solid topper)
+    2: {"w": 0.95, "y": -0.05},  # Long Straight  -> hair3 (long, hollow)
+    3: {"w": 1.1,  "y": -0.10},  # Curly Long     -> hair1 (curly, hollow)
 }
 DEFAULT_WIG_PARAMS = {"w": 1.1, "y": 0.0}
 
