@@ -23,9 +23,9 @@ android {
 
 //        buildConfigField "String", "BASE_URL_USERS", '"http://10.4.246.254:5000/api/"'
 //        buildConfigField "String", "BASE_URL_PICTURES", '"http://10.4.246.254:8000/"'
-        // No local server needed — using Firebase + Cloudinary
-        buildConfigField "String", "BASE_URL_USERS",    '"https://styleme-api.up.railway.app/"'
-        buildConfigField "String", "BASE_URL_PICTURES", '"https://styleme-api.up.railway.app/"'
+
+    buildConfigField "String", "BASE_URL_USERS",    '"https://styleme-api.onrender.com/"'
+    buildConfigField "String", "BASE_URL_PICTURES", '"https://styleme-api.onrender.com/"'
     }
 
     buildTypes {

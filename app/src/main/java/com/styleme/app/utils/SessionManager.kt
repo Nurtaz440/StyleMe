@@ -20,6 +20,7 @@ class SessionManager(context: Context) {
         const val KEY_HAIR_STYLE_ID = "hair_style_id"
         const val KEY_CURRENT_PICTURE_ID = "current_picture_id"
         const val KEY_CURRENT_MODEL_PICTURE_ID = "current_model_picture_id"
+        const val KEY_CURRENT_PHOTO_URL = "current_photo_url"
     }
 
     fun saveSession(token: String, user: User) {
@@ -34,7 +35,8 @@ class SessionManager(context: Context) {
             apply()
         }
     }
-
+    fun saveCurrentPhotoUrl(url: String) { prefs.edit().putString(KEY_CURRENT_PHOTO_URL, url).apply() }
+    fun getCurrentPhotoUrl(): String? = prefs.getString(KEY_CURRENT_PHOTO_URL, null)
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
     fun getUserId(): Int = prefs.getInt(KEY_USER_ID, -1)
     fun getUsername(): String = prefs.getString(KEY_USERNAME, "") ?: ""
