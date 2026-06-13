@@ -52,12 +52,16 @@ HAIR_STYLES = [
     {"id": 3, "name": "curly_long",     "label": "Curly Long"},
 ]
 
-# Map style id to Cloudinary public_id of wig image
-# UPDATE THESE with your actual Cloudinary public IDs after uploading
+# Map style id to Cloudinary public_id of wig image.
+# hair1 = curly, hair2 = short/topper, hair3 = long straight.
+# Assigned here so each wig matches its label/thumbnail in the app:
+#   1 "Short Textured" -> hair2 (short)
+#   2 "Long Straight"  -> hair3 (long straight)
+#   3 "Curly Long"     -> hair1 (curly)
 WIG_PUBLIC_IDS = {
-    1: "styleme/wigs/hair1",
-    2: "styleme/wigs/hair2",
-    3: "styleme/wigs/hair3",
+    1: "styleme/wigs/hair2",
+    2: "styleme/wigs/hair3",
+    3: "styleme/wigs/hair1",
 }
 
 MODEL_PICTURES = [
@@ -85,9 +89,9 @@ def make_placeholder_pic(picture_id: int):
 #   - solid wigs (short/topper, no face hole) -> smaller scale, negative y to
 #     shift the hair up onto the forehead/scalp instead of over the face
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.15, "y": 0.03},   # Short Textured -> hair1 (curly, hollow)
-    2: {"w": 1.05, "y": -0.12},  # Long Straight  -> hair2 (solid topper)
-    3: {"w": 1.0,  "y": 0.05},   # Curly Long     -> hair3 (long, hollow)
+    1: {"w": 1.05, "y": -0.12},  # Short Textured -> hair2 (solid topper)
+    2: {"w": 1.0,  "y": 0.05},   # Long Straight  -> hair3 (long, hollow)
+    3: {"w": 1.15, "y": 0.03},   # Curly Long     -> hair1 (curly, hollow)
 }
 DEFAULT_WIG_PARAMS = {"w": 1.1, "y": 0.0}
 
