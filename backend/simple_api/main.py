@@ -101,17 +101,32 @@ WIG_OVERLAY_PARAMS = {
 DEFAULT_WIG_PARAMS = {"w": 1.4, "y": -0.30}
 
 
-def remove_white_background(img: Image.Image, threshold: int = 230) -> Image.Image:
-    """Make near-white pixels transparent (for wigs without an alpha channel)."""
+def remove_white_background(img: Image.Image,
+                             hard_threshold: int = 240,
+                             soft_threshold: int = 180) -> Image.Image:
+    """
+    Remove white/near-white background from a wig PNG using luminance-based
+    graduated alpha so anti-aliased hair edges blend naturally.
+
+    Pixels brighter than hard_threshold → fully transparent.
+    Pixels between soft_threshold and hard_threshold → graduated alpha.
+    Pixels darker than soft_threshold → fully opaque (hair).
+    PIL's .point() runs in C so this stays fast even on large images.
+    """
     img = img.convert("RGBA")
-    pixels = img.getdata()
-    new_pixels = []
-    for r, g, b, a in pixels:
-        if r > threshold and g > threshold and b > threshold:
-            new_pixels.append((r, g, b, 0))
-        else:
-            new_pixels.append((r, g, b, a))
-    img.putdata(new_pixels)
+    luminance = img.convert("L")   # fast single-channel luminance
+
+    span = hard_threshold - soft_threshold
+
+    def lum_to_alpha(lum: int) -> int:
+        if lum >= hard_threshold:
+            return 0
+        if lum <= soft_threshold:
+            return 255
+        return int(255 * (hard_threshold - lum) / span)
+
+    new_alpha = luminance.point(lum_to_alpha)
+    img.putalpha(new_alpha)
     return img
 
 
