@@ -92,13 +92,13 @@ def make_placeholder_pic(picture_id: int):
 # "y"  = vertical offset of wig top edge from face-box top, as fraction of
 #         face height (negative = higher, covering more scalp/forehead)
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.4, "y": -0.30},  # Messy Textured
-    2: {"w": 1.4, "y": -0.30},  # Classic Pompadour
-    3: {"w": 1.5, "y": -0.35},  # Short Slick
-    4: {"w": 1.4, "y": -0.28},  # Natural Dark
-    5: {"w": 1.4, "y": -0.30},  # Side Sweep
+    1: {"w": 1.1, "y": -0.28},  # Messy Textured
+    2: {"w": 1.0, "y": -0.25},  # Classic Pompadour
+    3: {"w": 1.1, "y": -0.30},  # Short Slick
+    4: {"w": 1.0, "y": -0.22},  # Natural Dark
+    5: {"w": 1.1, "y": -0.28},  # Side Sweep
 }
-DEFAULT_WIG_PARAMS = {"w": 1.4, "y": -0.30}
+DEFAULT_WIG_PARAMS = {"w": 1.0, "y": -0.25}
 
 
 def remove_white_background(img: Image.Image,
@@ -164,6 +164,9 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     # Compute overlay size and position from face bbox [x, y, w, h]
     fx, fy, fw, fh = face[:4]
     overlay_w = round(fw * params["w"])
+    # Never let the wig exceed 85 % of the photo width (prevents giant wig on
+    # passport / close-up shots where the face fills most of the frame)
+    overlay_w = min(overlay_w, round(user_img.width * 0.85))
     aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
