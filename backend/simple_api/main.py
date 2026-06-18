@@ -56,8 +56,7 @@ HAIR_STYLES = [
     {"id": 1, "name": "messy_textured",    "label": "Messy Textured"},
     {"id": 2, "name": "classic_pompadour", "label": "Classic Pompadour"},
     {"id": 3, "name": "short_slick",       "label": "Short Slick"},
-    {"id": 4, "name": "natural_dark",      "label": "Natural Dark"},
-    {"id": 5, "name": "side_sweep",        "label": "Side Sweep"},
+    {"id": 4, "name": "side_sweep",        "label": "Side Sweep"},
 ]
 
 # Map style id -> wig PNG filename (served from /wigs/ static endpoint)
@@ -65,16 +64,14 @@ WIG_FILES = {
     1: "hair_messy.png",
     2: "hair_pompadour1.png",
     3: "hair_short_black.png",
-    4: "hair_natural.png",
-    5: "hair_pompadour2.png",
+    4: "hair_pompadour2.png",
 }
 
 MODEL_PICTURES = [
     {"id": 1, "file_name": "Messy Textured",    "file_path": None, "hair_style_id": 1, "face_shape_id": None, "hair_length_id": 1},
     {"id": 2, "file_name": "Classic Pompadour", "file_path": None, "hair_style_id": 2, "face_shape_id": None, "hair_length_id": 2},
     {"id": 3, "file_name": "Short Slick",       "file_path": None, "hair_style_id": 3, "face_shape_id": None, "hair_length_id": 1},
-    {"id": 4, "file_name": "Natural Dark",      "file_path": None, "hair_style_id": 4, "face_shape_id": None, "hair_length_id": 2},
-    {"id": 5, "file_name": "Side Sweep",        "file_path": None, "hair_style_id": 5, "face_shape_id": None, "hair_length_id": 2},
+    {"id": 4, "file_name": "Side Sweep",        "file_path": None, "hair_style_id": 4, "face_shape_id": None, "hair_length_id": 2},
 ]
 
 pictures_store = {}
@@ -88,17 +85,18 @@ def make_placeholder_pic(picture_id: int):
     }
 
 # Per-style overlay tuning.
-# "w"  = wig width as a multiple of the detected face width
-# "y"  = vertical offset of wig top edge from face-box top, as fraction of
-#         face height (negative = higher, covering more scalp/forehead)
+# "w"        = wig width as a multiple of the detected face width
+# "forehead" = fraction of face height where the wig bottom edge sits
+#              (0.15 = wig bottom lands at top 15% of face = upper forehead)
+#              Anchoring from the wig-bottom avoids the wig floating off-frame
+#              on passport / close-up photos where fy ≈ 0.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.1, "y": -0.28},  # Messy Textured
-    2: {"w": 1.0, "y": -0.25},  # Classic Pompadour
-    3: {"w": 1.1, "y": -0.30},  # Short Slick
-    4: {"w": 1.0, "y": -0.22},  # Natural Dark
-    5: {"w": 1.1, "y": -0.28},  # Side Sweep
+    1: {"w": 1.1, "forehead": 0.15},  # Messy Textured
+    2: {"w": 1.0, "forehead": 0.15},  # Classic Pompadour
+    3: {"w": 1.1, "forehead": 0.12},  # Short Slick
+    4: {"w": 1.1, "forehead": 0.15},  # Side Sweep
 }
-DEFAULT_WIG_PARAMS = {"w": 1.0, "y": -0.25}
+DEFAULT_WIG_PARAMS = {"w": 1.0, "forehead": 0.15}
 
 
 def remove_white_background(img: Image.Image,
@@ -171,8 +169,12 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     overlay_h = round(overlay_w * aspect)
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
 
+    # Anchor: the BOTTOM of the wig sits at `forehead` fraction into the face
+    # box (e.g. 0.15 = upper-forehead line). Using the bottom edge as anchor
+    # keeps the wig on the head regardless of photo type (passport vs casual).
+    forehead_y = round(fy + params["forehead"] * fh)
     x = round(fx + fw / 2 - overlay_w / 2)
-    y = round(fy + params["y"] * fh)
+    y = forehead_y - overlay_h
 
     # Place the resized wig on a transparent canvas the same size as the photo,
     # clipping any parts that go outside the frame.
