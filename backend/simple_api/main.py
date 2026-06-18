@@ -91,12 +91,12 @@ def make_placeholder_pic(picture_id: int):
 #              Anchoring from the wig-bottom avoids the wig floating off-frame
 #              on passport / close-up photos where fy ≈ 0.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.1, "forehead": 0.08},  # Messy Textured
-    2: {"w": 1.0, "forehead": 0.08},  # Classic Pompadour
-    3: {"w": 1.1, "forehead": 0.05},  # Short Slick
-    4: {"w": 1.1, "forehead": 0.08},  # Side Sweep
+    1: {"w": 1.1, "forehead": 0.30},  # Messy Textured
+    2: {"w": 1.0, "forehead": 0.28},  # Classic Pompadour
+    3: {"w": 1.1, "forehead": 0.25},  # Short Slick
+    4: {"w": 1.1, "forehead": 0.30},  # Side Sweep
 }
-DEFAULT_WIG_PARAMS = {"w": 1.0, "forehead": 0.08}
+DEFAULT_WIG_PARAMS = {"w": 1.0, "forehead": 0.28}
 
 
 def hair_content_bottom_fraction(img_rgba: Image.Image) -> float:
