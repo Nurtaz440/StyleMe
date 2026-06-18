@@ -217,22 +217,14 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     overlay_h = round(overlay_w * aspect)
     overlay_h = min(overlay_h, round(fh * 0.70))  # hard upper cap
 
-    # Hairline constraint: ensure the wig's opaque hair bottom lands at the
-    # natural hairline (~28 % into the face box from its top).  Without this,
-    # tall-aspect-ratio PNGs produce an overlay_h that is too large, pushing
-    # the hair content well past the forehead and making the wig look too low
-    # or leaving the true hairline uncovered above the wig edge.
-    # Derivation: y = fy - crown_margin;  hair_bottom = y + hair_bottom_frac*h
-    #   => hair_bottom_frac * overlay_h_max = 0.28*fh + crown_margin
-    crown_margin = round(fh * 0.04)
-    if hair_bottom_frac > 0.01:
-        overlay_h_max = round((0.28 * fh + crown_margin) / hair_bottom_frac)
-        overlay_h = min(overlay_h, overlay_h_max)
-
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
     wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.22)
 
-    # Crown anchor: hair crown lands just above the detected face bbox top (fy).
+    # Crown anchor: place wig so the first opaque hair pixel in the PNG lands
+    # exactly at fy (the top of the detected face bbox).
+    # crown_margin=0 lands the hair crown on fy; a positive value shifts it UP
+    # (above fy), a negative value shifts it DOWN (into the face area).
+    crown_margin  = 0
     hair_crown_px = round(hair_top_frac * overlay_h)
     x = round(fx + fw / 2 - overlay_w / 2)
     y = (fy - crown_margin) - hair_crown_px
