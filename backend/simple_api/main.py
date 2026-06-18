@@ -1,9 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
-import cloudinary.utils
-import os, random, uuid
+import os, random, uuid, io, requests
+from PIL import Image
 
 app = FastAPI()
 app.add_middleware(
@@ -18,6 +19,11 @@ cloudinary.config(
     api_key    = os.getenv("CLOUDINARY_API_KEY", ""),
     api_secret = os.getenv("CLOUDINARY_API_SECRET", "")
 )
+
+WIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wigs")
+app.mount("/wigs", StaticFiles(directory=WIG_DIR), name="wigs")
+
+BACKEND_URL = os.getenv("BACKEND_URL", "https://styleme-api.onrender.com")
 
 FACE_SHAPES = [
     {"id": 1, "name": "oval",    "label": "Oval"},
@@ -47,27 +53,28 @@ HAIR_COLOURS = [
 ]
 
 HAIR_STYLES = [
-    {"id": 1, "name": "short_textured", "label": "Short Textured"},
-    {"id": 2, "name": "long_straight",  "label": "Long Straight"},
-    {"id": 3, "name": "curly_long",     "label": "Curly Long"},
+    {"id": 1, "name": "messy_textured",    "label": "Messy Textured"},
+    {"id": 2, "name": "classic_pompadour", "label": "Classic Pompadour"},
+    {"id": 3, "name": "short_slick",       "label": "Short Slick"},
+    {"id": 4, "name": "natural_dark",      "label": "Natural Dark"},
+    {"id": 5, "name": "side_sweep",        "label": "Side Sweep"},
 ]
 
-# Map style id to Cloudinary public_id of wig image.
-# hair1 = curly, hair2 = short/topper, hair3 = long straight.
-# Assigned here so each wig matches its label/thumbnail in the app:
-#   1 "Short Textured" -> hair2 (short)
-#   2 "Long Straight"  -> hair3 (long straight)
-#   3 "Curly Long"     -> hair1 (curly)
-WIG_PUBLIC_IDS = {
-    1: "styleme/wigs/hair2",
-    2: "styleme/wigs/hair3",
-    3: "styleme/wigs/hair1",
+# Map style id -> wig PNG filename (served from /wigs/ static endpoint)
+WIG_FILES = {
+    1: "hair_messy.png",
+    2: "hair_pompadour1.png",
+    3: "hair_short_black.png",
+    4: "hair_natural.png",
+    5: "hair_pompadour2.png",
 }
 
 MODEL_PICTURES = [
-    {"id": 1, "file_name": "Short Textured", "file_path": None, "hair_style_id": 1, "face_shape_id": None, "hair_length_id": 1},
-    {"id": 2, "file_name": "Long Straight",  "file_path": None, "hair_style_id": 2, "face_shape_id": None, "hair_length_id": 3},
-    {"id": 3, "file_name": "Curly Long",     "file_path": None, "hair_style_id": 3, "face_shape_id": None, "hair_length_id": 3},
+    {"id": 1, "file_name": "Messy Textured",    "file_path": None, "hair_style_id": 1, "face_shape_id": None, "hair_length_id": 1},
+    {"id": 2, "file_name": "Classic Pompadour", "file_path": None, "hair_style_id": 2, "face_shape_id": None, "hair_length_id": 2},
+    {"id": 3, "file_name": "Short Slick",       "file_path": None, "hair_style_id": 3, "face_shape_id": None, "hair_length_id": 1},
+    {"id": 4, "file_name": "Natural Dark",      "file_path": None, "hair_style_id": 4, "face_shape_id": None, "hair_length_id": 2},
+    {"id": 5, "file_name": "Side Sweep",        "file_path": None, "hair_style_id": 5, "face_shape_id": None, "hair_length_id": 2},
 ]
 
 pictures_store = {}
@@ -77,63 +84,87 @@ def make_placeholder_pic(picture_id: int):
         "id": picture_id, "file_name": "photo.jpg",
         "file_path": None, "public_id": None,
         "file_size": "0", "height": None,
-        "width": None, "date_created": ""
+        "width": None, "date_created": "", "face": None
     }
 
-# Per-style overlay tuning. Each wig PNG has a different "face hole" shape /
-# hairline coverage, so the scale (relative to the *detected face box*) and
-# the vertical offset (relative to face height, measured from the top of the
-# face box) need to be tuned per style for a natural fit.
-#   - "w" is the overlay width as a multiple of the detected face width
-#   - "y" is how far the overlay's top edge sits above the face box's top
-#     edge, as a fraction of the face height (negative = higher / more
-#     forehead & scalp coverage)
+# Per-style overlay tuning.
+# "w"  = wig width as a multiple of the detected face width
+# "y"  = vertical offset of wig top edge from face-box top, as fraction of
+#         face height (negative = higher, covering more scalp/forehead)
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.4,  "y": -0.30},  # Short Textured -> hair2 (solid topper)
-    2: {"w": 1.5,  "y": -0.35},  # Long Straight  -> hair3 (long, hollow)
-    3: {"w": 1.6,  "y": -0.28},  # Curly Long     -> hair1 (curly, hollow)
+    1: {"w": 1.4, "y": -0.30},  # Messy Textured
+    2: {"w": 1.4, "y": -0.30},  # Classic Pompadour
+    3: {"w": 1.5, "y": -0.35},  # Short Slick
+    4: {"w": 1.4, "y": -0.28},  # Natural Dark
+    5: {"w": 1.4, "y": -0.30},  # Side Sweep
 }
-DEFAULT_WIG_PARAMS = {"w": 1.5, "y": -0.4}
+DEFAULT_WIG_PARAMS = {"w": 1.4, "y": -0.30}
 
 
-def apply_wig_overlay(user_public_id: str, wig_public_id: str, cloud_name: str,
-                       style_id: int = 0, face=None) -> str:
+def remove_white_background(img: Image.Image, threshold: int = 230) -> Image.Image:
+    """Make near-white pixels transparent (for wigs without an alpha channel)."""
+    img = img.convert("RGBA")
+    pixels = img.getdata()
+    new_pixels = []
+    for r, g, b, a in pixels:
+        if r > threshold and g > threshold and b > threshold:
+            new_pixels.append((r, g, b, 0))
+        else:
+            new_pixels.append((r, g, b, a))
+    img.putdata(new_pixels)
+    return img
+
+
+def composite_wig(user_photo_url: str, wig_filename: str,
+                  face: list, style_id: int) -> bytes:
     """
-    Overlay a wig PNG onto the user's face photo.
+    Download the user's photo, load the wig PNG, composite them with PIL,
+    and return the result as JPEG bytes.
 
-    - e_make_transparent strips the wig's white background so only the hair
-      pixels are composited (no white box over the face).
-    - If a detected face bounding box (x, y, width, height in pixels) is
-      available, the overlay is sized as a multiple of the face width and
-      positioned with absolute pixel offsets (g_north_west) so it lines up
-      with the actual face regardless of where it is in the photo.
-    - Falls back to Cloudinary's g_face gravity (less reliable, but works
-      without a stored face box) if no face was detected at upload time.
-    - fl_no_overflow keeps the composited image the same size as the
-      original photo (no extra white canvas).
+    - Wigs that already carry an alpha channel (PNG transparency) are used
+      directly — no white removal needed.
+    - Wigs with a white/near-white background have it stripped via
+      remove_white_background() before compositing.
+    - Overlay is sized and positioned using the face bounding box detected
+      at upload time, so it lines up with the actual face in the photo.
     """
-    wig_layer = wig_public_id.replace("/", ":")
     params = WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_WIG_PARAMS)
 
-    if face:
-        fx, fy, fw, fh = face[:4]
-        overlay_w = round(fw * params["w"])
-        x = round(fx + fw / 2 - overlay_w / 2)
-        y = round(fy + params["y"] * fh)
-        transformation = (
-            f"l_{wig_layer},e_make_transparent:30,"
-            f"w_{overlay_w},x_{x},y_{y},g_north_west,fl_no_overflow,fl_layer_apply"
-        )
-    else:
-        transformation = (
-            f"l_{wig_layer},e_make_transparent:30,fl_relative,fl_no_overflow,"
-            f"w_{params['w']},g_face,y_{params['y']},fl_layer_apply"
-        )
+    # Load user photo
+    resp = requests.get(user_photo_url, timeout=20)
+    resp.raise_for_status()
+    user_img = Image.open(io.BytesIO(resp.content)).convert("RGBA")
 
-    return (
-        f"https://res.cloudinary.com/{cloud_name}"
-        f"/image/upload/{transformation}/{user_public_id}"
-    )
+    # Load wig
+    wig_path = os.path.join(WIG_DIR, wig_filename)
+    wig_img = Image.open(wig_path).convert("RGBA")
+
+    # If the wig has no meaningful transparency, remove its white background
+    alpha_vals = [p[3] for p in wig_img.getdata()]
+    has_transparency = any(a < 200 for a in alpha_vals)
+    if not has_transparency:
+        wig_img = remove_white_background(wig_img)
+
+    # Compute overlay size and position from face bbox [x, y, w, h]
+    fx, fy, fw, fh = face[:4]
+    overlay_w = round(fw * params["w"])
+    aspect    = wig_img.height / wig_img.width
+    overlay_h = round(overlay_w * aspect)
+    wig_resized = wig_img.resize((overlay_w, overlay_h), Image.LANCZOS)
+
+    x = round(fx + fw / 2 - overlay_w / 2)
+    y = round(fy + params["y"] * fh)
+
+    # Composite
+    canvas = user_img.copy()
+    canvas.paste(wig_resized, (x, y), wig_resized)
+
+    # Return as JPEG bytes
+    result = canvas.convert("RGB")
+    buf = io.BytesIO()
+    result.save(buf, format="JPEG", quality=92)
+    return buf.getvalue()
+
 
 @app.get("/health")
 def health():
@@ -153,13 +184,12 @@ def get_face_shapes():
 
 @app.get("/model_pictures")
 def get_model_pictures():
-    cloud = os.getenv("CLOUDINARY_CLOUD_NAME", "")
     result = []
     for m in MODEL_PICTURES:
         pic = dict(m)
-        wig_id = WIG_PUBLIC_IDS.get(m["hair_style_id"])
-        if wig_id and cloud:
-            pic["file_path"] = f"https://res.cloudinary.com/{cloud}/image/upload/{wig_id}"
+        wig_file = WIG_FILES.get(m["hair_style_id"])
+        if wig_file:
+            pic["file_path"] = f"{BACKEND_URL}/wigs/{wig_file}"
         result.append(pic)
     return result
 
@@ -214,7 +244,7 @@ def get_picture_file(picture_id: int):
 
 @app.get("/pictures/change_hair_colour/{picture_id}")
 def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
-    pic = pictures_store.get(picture_id, make_placeholder_pic(picture_id))
+    pic        = pictures_store.get(picture_id, make_placeholder_pic(picture_id))
     public_id  = pic.get("public_id")
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
     hex_color  = f"{r:02X}{g:02X}{b:02X}"
@@ -245,28 +275,34 @@ def change_hair_colour(picture_id: int, colour: str, r: int, g: int, b: int):
 
 @app.get("/pictures/change_hair_style")
 def change_hair_style(user_picture_id: int, model_picture_id: int):
-    pic        = pictures_store.get(user_picture_id, make_placeholder_pic(user_picture_id))
-    user_pub   = pic.get("public_id")
-    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+    pic      = pictures_store.get(user_picture_id, make_placeholder_pic(user_picture_id))
+    face     = pic.get("face")
+    file_path = pic.get("file_path")
 
-    model      = next((m for m in MODEL_PICTURES if m["id"] == model_picture_id), None)
-    style_id   = model["hair_style_id"] if model else model_picture_id
-    wig_pub_id = WIG_PUBLIC_IDS.get(style_id)
+    model    = next((m for m in MODEL_PICTURES if m["id"] == model_picture_id), None)
+    style_id = model["hair_style_id"] if model else model_picture_id
+    wig_file = WIG_FILES.get(style_id)
 
-    if user_pub and wig_pub_id and cloud_name:
-        result_url = apply_wig_overlay(user_pub, wig_pub_id, cloud_name, style_id, pic.get("face"))
-    elif wig_pub_id and cloud_name:
-        # No user photo public_id — just return the wig preview image
-        result_url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{wig_pub_id}"
+    result_url = file_path or ""
+
+    if file_path and wig_file and face:
+        try:
+            result_bytes = composite_wig(file_path, wig_file, face, style_id)
+            upload_res   = cloudinary.uploader.upload(
+                result_bytes,
+                folder="styleme/styled",
+                resource_type="image"
+            )
+            result_url = upload_res["secure_url"]
+            new_pub_id = upload_res["public_id"]
+        except Exception as e:
+            result_url = file_path
+            new_pub_id = pic.get("public_id")
     else:
-        result_url = pic.get("file_path", "")
-
-    # Make sure result_url is never None
-    if not result_url:
-        result_url = ""
+        new_pub_id = pic.get("public_id")
 
     new_id  = abs(hash(f"{user_picture_id}_style_{style_id}")) % 1000000
-    new_pic = {**pic, "id": new_id, "file_path": result_url}
+    new_pic = {**pic, "id": new_id, "file_path": result_url, "public_id": new_pub_id}
     pictures_store[new_id] = new_pic
 
     return {
@@ -291,29 +327,10 @@ def get_latest_history():
 
 @app.get("/pictures/register")
 def register_picture(picture_id: int, url: str, public_id: str):
-    """Re-register a picture from Firestore after server restart"""
     pictures_store[picture_id] = {
-        "id":           picture_id,
-        "file_name":    "photo.jpg",
-        "file_path":    url,
-        "public_id":    public_id,
-        "file_size":    "0",
-        "height":       None,
-        "width":        None,
-        "date_created": ""
+        "id": picture_id, "file_name": "photo.jpg",
+        "file_path": url, "public_id": public_id,
+        "file_size": "0", "height": None, "width": None,
+        "date_created": "", "face": None
     }
     return {"status": "registered", "picture_id": picture_id}
-
-@app.get("/test/wig_url")
-def test_wig_url(user_public_id: str, style_id: int = 1,
-                  face_x: int = None, face_y: int = None,
-                  face_w: int = None, face_h: int = None):
-    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
-    wig_pub_id = WIG_PUBLIC_IDS.get(style_id, "")
-    if not wig_pub_id or not cloud_name:
-        return {"error": "Missing config", "cloud_name": cloud_name, "wig_pub_id": wig_pub_id}
-    face = None
-    if None not in (face_x, face_y, face_w, face_h):
-        face = [face_x, face_y, face_w, face_h]
-    url = apply_wig_overlay(user_public_id, wig_pub_id, cloud_name, style_id, face)
-    return {"url": url, "user_public_id": user_public_id, "wig_pub_id": wig_pub_id, "face": face}
