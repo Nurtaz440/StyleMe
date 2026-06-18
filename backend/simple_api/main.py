@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
 import os, random, uuid, io, requests
-from PIL import Image
+from PIL import Image, ImageOps
 
 app = FastAPI()
 app.add_middleware(
@@ -91,12 +91,30 @@ def make_placeholder_pic(picture_id: int):
 #              Anchoring from the wig-bottom avoids the wig floating off-frame
 #              on passport / close-up photos where fy ≈ 0.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.1, "forehead": 0.30},  # Messy Textured
-    2: {"w": 1.0, "forehead": 0.28},  # Classic Pompadour
-    3: {"w": 1.1, "forehead": 0.25},  # Short Slick
-    4: {"w": 1.1, "forehead": 0.30},  # Side Sweep
+    1: {"w": 1.1, "forehead": 0.08},  # Messy Textured
+    2: {"w": 1.0, "forehead": 0.08},  # Classic Pompadour
+    3: {"w": 1.1, "forehead": 0.05},  # Short Slick
+    4: {"w": 1.1, "forehead": 0.08},  # Side Sweep
 }
-DEFAULT_WIG_PARAMS = {"w": 1.0, "forehead": 0.28}
+DEFAULT_WIG_PARAMS = {"w": 1.0, "forehead": 0.08}
+
+
+def hair_content_bottom_fraction(img_rgba: Image.Image) -> float:
+    """Return the fraction (0-1) of the PNG height where the last opaque hair
+    pixel is found.  Uses PIL getbbox() on a binarised alpha channel (C-level
+    scan) for efficiency.  Falls back to 1.0 if nothing is found.
+
+    Wig PNGs typically have the hair crown at the top and transparent space at
+    the bottom.  Anchoring to this value (rather than the full image height)
+    means the real hair bottom aligns with the target forehead line instead of
+    the PNG's empty lower region.
+    """
+    alpha = img_rgba.split()[3]
+    alpha_bin = alpha.point(lambda a: 255 if a > 30 else 0)
+    bbox = alpha_bin.getbbox()  # (left, top, right, bottom) or None
+    if bbox:
+        return bbox[3] / img_rgba.height
+    return 1.0
 
 
 def remove_white_background(img: Image.Image,
@@ -139,48 +157,54 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     """
     params = WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_WIG_PARAMS)
 
-    # Load user photo — go through RGB first to normalise any CMYK/P modes
+    # Load user photo.
+    # Apply EXIF transpose so PIL's pixel grid matches the orientation that
+    # Cloudinary's face detection analysed (avoids coordinate mismatch on
+    # photos shot in portrait but stored as landscape bytes).
     resp = requests.get(user_photo_url, timeout=20)
     resp.raise_for_status()
-    user_img = Image.open(io.BytesIO(resp.content)).convert("RGB").convert("RGBA")
+    user_img = ImageOps.exif_transpose(
+        Image.open(io.BytesIO(resp.content))
+    ).convert("RGB").convert("RGBA")
 
     # Load wig — convert to RGBA regardless of source mode (P, LA, RGB, …)
     wig_path = os.path.join(WIG_DIR, wig_filename)
     wig_raw  = Image.open(wig_path)
-    # Preserve palette transparency before converting
     if wig_raw.mode == "P":
         wig_raw = wig_raw.convert("RGBA")
     else:
         wig_raw = wig_raw.convert("RGBA")
 
-    # If the wig has no meaningful transparency, strip its white background
+    # Strip white background if the wig has no meaningful transparency already
     alpha_vals = list(wig_raw.split()[3].getdata())
     has_transparency = any(a < 200 for a in alpha_vals)
     if not has_transparency:
         wig_raw = remove_white_background(wig_raw)
 
-    # Compute overlay size and position from face bbox [x, y, w, h]
+    # Find where the actual hair content ends vertically.
+    # Wig PNGs have the crown at the top and transparent/white space below the
+    # hair ends. Anchoring to the real hair bottom (not the PNG image bottom)
+    # keeps the hair aligned with the forehead regardless of how much empty
+    # space the PNG has beneath the hair.
+    hair_bottom_frac = hair_content_bottom_fraction(wig_raw)
+
+    # Compute overlay size from face bbox [x, y, w, h]
     fx, fy, fw, fh = face[:4]
     overlay_w = round(fw * params["w"])
-    # Never let the wig exceed 85 % of the photo width (prevents giant wig on
-    # passport / close-up shots where the face fills most of the frame)
     overlay_w = min(overlay_w, round(user_img.width * 0.85))
     aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
-    # Cap wig height at 65 % of face height so tall wigs don't push most of
-    # the wig above the image frame on passport / close-up photos.
-    max_h = round(fh * 0.65)
-    if overlay_h > max_h:
-        overlay_h = max_h
-        overlay_w = min(round(overlay_h / aspect), round(user_img.width * 0.85))
+    # Cap height so the wig doesn't dwarf the face on close-up/passport shots
+    overlay_h = min(overlay_h, round(fh * 0.65))
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
 
-    # Anchor: the BOTTOM of the wig sits at `forehead` fraction into the face
-    # box. 0.30 = wig bottom at ~upper-forehead, so most of the wig is visible
-    # above the head even on passport photos where fy ≈ 0.
+    # Anchor: align the ACTUAL HAIR BOTTOM (not the PNG image bottom) with the
+    # hairline target.  `forehead` is a small fraction (0.05-0.10) because we
+    # measure from the real hair content, not the transparent padding below it.
+    actual_hair_bottom_px = round(hair_bottom_frac * overlay_h)
     forehead_y = round(fy + params["forehead"] * fh)
     x = round(fx + fw / 2 - overlay_w / 2)
-    y = forehead_y - overlay_h
+    y = forehead_y - actual_hair_bottom_px
 
     # Place the resized wig on a transparent canvas the same size as the photo,
     # clipping any parts that go outside the frame.
@@ -205,6 +229,63 @@ def composite_wig(user_photo_url: str, wig_filename: str,
 @app.get("/health")
 def health():
     return {"status": "ok", "pictures_in_memory": len(pictures_store)}
+
+@app.get("/debug/composite_params")
+def debug_composite_params(user_picture_id: int, model_picture_id: int):
+    """Return face bbox, image size, wig bottom fraction, and y-placement
+    without actually compositing.  Call after uploading a photo to diagnose
+    positioning issues."""
+    pic = pictures_store.get(user_picture_id)
+    if not pic:
+        raise HTTPException(status_code=404, detail="picture not found — upload first")
+    face = pic.get("face")
+    file_path = pic.get("file_path")
+    if not face or not file_path:
+        raise HTTPException(status_code=400, detail="no face detected or no photo URL")
+
+    model    = next((m for m in MODEL_PICTURES if m["id"] == model_picture_id), None)
+    style_id = model["hair_style_id"] if model else model_picture_id
+    wig_file = WIG_FILES.get(style_id)
+    if not wig_file:
+        raise HTTPException(status_code=404, detail="unknown style")
+
+    params = WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_WIG_PARAMS)
+
+    resp = requests.get(file_path, timeout=20)
+    user_img = ImageOps.exif_transpose(
+        Image.open(io.BytesIO(resp.content))
+    ).convert("RGB")
+    img_w, img_h = user_img.size
+
+    wig_raw = Image.open(os.path.join(WIG_DIR, wig_file))
+    wig_raw = wig_raw.convert("RGBA")
+    alpha_vals = list(wig_raw.split()[3].getdata())
+    if not any(a < 200 for a in alpha_vals):
+        wig_raw = remove_white_background(wig_raw)
+    hair_bottom_frac = hair_content_bottom_fraction(wig_raw)
+    aspect = wig_raw.height / wig_raw.width
+
+    fx, fy, fw, fh = face[:4]
+    overlay_w = min(round(fw * params["w"]), round(img_w * 0.85))
+    overlay_h = min(round(overlay_w * aspect), round(fh * 0.65))
+    actual_hair_bottom_px = round(hair_bottom_frac * overlay_h)
+    forehead_y = round(fy + params["forehead"] * fh)
+    y = forehead_y - actual_hair_bottom_px
+
+    return {
+        "image_size":         {"w": img_w, "h": img_h},
+        "face_bbox_raw":      face,
+        "face_bbox":          {"fx": fx, "fy": fy, "fw": fw, "fh": fh},
+        "face_pct_of_image":  {"fy": round(fy/img_h, 3), "fh": round(fh/img_h, 3),
+                               "fx": round(fx/img_w, 3), "fw": round(fw/img_w, 3)},
+        "wig":                {"file": wig_file, "aspect": round(aspect, 3),
+                               "hair_bottom_frac": round(hair_bottom_frac, 3)},
+        "overlay":            {"w": overlay_w, "h": overlay_h,
+                               "actual_hair_bottom_px": actual_hair_bottom_px,
+                               "forehead_y": forehead_y, "y": y,
+                               "x": round(fx + fw/2 - overlay_w/2)},
+        "params":             params,
+    }
 
 @app.get("/hair_colours")
 def get_hair_colours():
