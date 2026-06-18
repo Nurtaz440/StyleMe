@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
 import os, random, uuid, io, requests
-from PIL import Image, ImageOps, ImageDraw, ImageChops
+from PIL import Image, ImageOps, ImageDraw, ImageChops, ImageFilter
 
 app = FastAPI()
 app.add_middleware(
@@ -168,6 +168,11 @@ def remove_white_background(img: Image.Image,
         return int(255 * (hard_threshold - lum) / span)
 
     new_alpha = luminance.point(lum_to_alpha)
+    # Erode alpha by 1 px: MinFilter(3) takes the minimum value in each 3×3
+    # neighbourhood, which shrinks the opaque region by one pixel on every edge.
+    # This clips the semi-transparent fringe pixels that would otherwise appear
+    # as a grey halo when the wig is composited over the user's dark hair.
+    new_alpha = new_alpha.filter(ImageFilter.MinFilter(3))
     img.putalpha(new_alpha)
     return img
 
@@ -223,7 +228,7 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     # Cap height so the wig doesn't dwarf the face on close-up/passport shots
     overlay_h = min(overlay_h, round(fh * 0.65))
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
-    wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.35)
+    wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.15)
 
     # Anchor: align the ACTUAL HAIR BOTTOM (not the PNG image bottom) with the
     # hairline target.  `forehead` is a small fraction (0.05-0.10) because we
