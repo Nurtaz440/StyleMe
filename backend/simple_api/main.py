@@ -215,11 +215,11 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     overlay_h = round(overlay_w * aspect)
     # Cap height at 55 % of face height so the wig doesn't smother the face.
     # Maintain aspect ratio so the wig doesn't look squished.
-    cap_h = round(fh * 0.55)
-    if overlay_h > cap_h:
-        scale     = cap_h / overlay_h
-        overlay_h = cap_h
-        overlay_w = max(1, round(overlay_w * scale))
+    # Cap height only — do NOT scale overlay_w down with it.
+    # Scaling width when capping height produces a tiny narrow wig on tall-
+    # aspect-ratio PNGs (e.g. hair_messy.png ~1.3:1).  Width is already set
+    # correctly by fw × w; height just clips extra transparent padding below.
+    overlay_h = min(overlay_h, round(fh * 0.70))
 
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
     wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.15)
