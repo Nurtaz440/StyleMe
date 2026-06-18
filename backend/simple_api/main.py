@@ -91,12 +91,12 @@ def make_placeholder_pic(picture_id: int):
 #              Anchoring from the wig-bottom avoids the wig floating off-frame
 #              on passport / close-up photos where fy ≈ 0.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.35, "forehead": 0.30},  # Messy Textured
-    2: {"w": 1.25, "forehead": 0.28},  # Classic Pompadour
-    3: {"w": 1.30, "forehead": 0.25},  # Short Slick
-    4: {"w": 1.35, "forehead": 0.30},  # Side Sweep
+    1: {"w": 1.20, "forehead": 0.32},  # Messy Textured
+    2: {"w": 1.20, "forehead": 0.28},  # Classic Pompadour (confirmed working)
+    3: {"w": 1.20, "forehead": 0.28},  # Short Slick
+    4: {"w": 1.05, "forehead": 0.42},  # Side Sweep (large PNG, full-coverage hair)
 }
-DEFAULT_WIG_PARAMS = {"w": 1.25, "forehead": 0.28}
+DEFAULT_WIG_PARAMS = {"w": 1.15, "forehead": 0.28}
 
 
 def hair_content_bottom_fraction(img_rgba: Image.Image) -> float:
@@ -248,20 +248,27 @@ def composite_wig(user_photo_url: str, wig_filename: str,
 
     # Compute overlay size from face bbox [x, y, w, h]
     fx, fy, fw, fh = face[:4]
+    # Compute anchor first so we can use it to constrain overlay height.
+    # forehead_y = where the actual hair BOTTOM should land on the face.
+    forehead_y = round(fy + params["forehead"] * fh)
+
     overlay_w = round(fw * params["w"])
     overlay_w = min(overlay_w, round(user_img.width * 0.85))
     aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
-    # Cap height so the wig doesn't dwarf the face on close-up/passport shots
+    # Cap 1: don't dwarf the face
     overlay_h = min(overlay_h, round(fh * 0.85))
+    # Cap 2: prevent the wig from floating above the image frame.
+    # hair_bottom_frac × overlay_h must not exceed forehead_y, otherwise
+    # y = forehead_y - actual_hair_bottom becomes deeply negative (wig above frame).
+    if hair_bottom_frac > 0.01:
+        overlay_h = min(overlay_h, round(forehead_y / hair_bottom_frac))
+
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
     wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.15)
 
-    # Anchor: align the ACTUAL HAIR BOTTOM (not the PNG image bottom) with the
-    # hairline target.  `forehead` is a small fraction (0.05-0.10) because we
-    # measure from the real hair content, not the transparent padding below it.
+    # Anchor: align the ACTUAL HAIR BOTTOM (not the PNG image bottom) with forehead_y.
     actual_hair_bottom_px = round(hair_bottom_frac * overlay_h)
-    forehead_y = round(fy + params["forehead"] * fh)
     x = round(fx + fw / 2 - overlay_w / 2)
     y = forehead_y - actual_hair_bottom_px
 
