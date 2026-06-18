@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
 import os, random, uuid, io, requests
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw, ImageChops
 
 app = FastAPI()
 app.add_middleware(
@@ -117,9 +117,35 @@ def hair_content_bottom_fraction(img_rgba: Image.Image) -> float:
     return 1.0
 
 
+def apply_bottom_fade(img_rgba: Image.Image, fade_fraction: float = 0.35) -> Image.Image:
+    """Fade the alpha channel to 0 over the bottom `fade_fraction` of the wig.
+
+    This removes the hard horizontal edge that appears where the wig meets
+    the face, making the hairstyle blend naturally into the skin rather than
+    ending with a sharp line.  A fade_fraction of 0.35 means the bottom 35 %
+    of the wig (e.g. sideburns / hair ends) gradually dissolves to transparent.
+    """
+    w, h = img_rgba.size
+    fade_h = round(h * fade_fraction)
+    fade_start = h - fade_h
+
+    # Build a linear gradient mask: 255 above fade_start, 0 at image bottom
+    gradient = Image.new("L", (w, h), 255)
+    draw = ImageDraw.Draw(gradient)
+    for dy in range(fade_h):
+        value = round(255 * (1.0 - dy / fade_h))
+        draw.line([(0, fade_start + dy), (w - 1, fade_start + dy)], fill=value)
+
+    # Multiply existing alpha by the gradient (C-level op in PIL)
+    alpha = img_rgba.split()[3]
+    new_alpha = ImageChops.multiply(alpha, gradient)
+    r, g, b, _ = img_rgba.split()
+    return Image.merge("RGBA", (r, g, b, new_alpha))
+
+
 def remove_white_background(img: Image.Image,
                              hard_threshold: int = 240,
-                             soft_threshold: int = 180) -> Image.Image:
+                             soft_threshold: int = 160) -> Image.Image:
     """
     Remove white/near-white background from a wig PNG using luminance-based
     graduated alpha so anti-aliased hair edges blend naturally.
@@ -197,6 +223,7 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     # Cap height so the wig doesn't dwarf the face on close-up/passport shots
     overlay_h = min(overlay_h, round(fh * 0.65))
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
+    wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.35)
 
     # Anchor: align the ACTUAL HAIR BOTTOM (not the PNG image bottom) with the
     # hairline target.  `forehead` is a small fraction (0.05-0.10) because we
