@@ -91,11 +91,11 @@ def make_placeholder_pic(picture_id: int):
 # "w" = wig width as a multiple of the detected face width.
 # Positioning is driven by crown anchor (see composite_wig), not a per-style param.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.45},  # Messy Textured
-    2: {"w": 1.45},  # Classic Pompadour
-    3: {"w": 1.45},  # Short Slick
-    4: {"w": 1.25},  # Side Sweep (large PNG, keep slightly narrower)
-    6: {"w": 1.45},  # Blaze Crop
+    1: {"w": 1.60},  # Messy Textured
+    2: {"w": 1.60},  # Classic Pompadour
+    3: {"w": 1.60},  # Short Slick
+    4: {"w": 1.35},  # Side Sweep (large PNG, keep slightly narrower)
+    6: {"w": 1.60},  # Blaze Crop
 }
 DEFAULT_WIG_PARAMS = {"w": 1.15}
 
@@ -112,26 +112,35 @@ def hair_content_fractions(img_rgba: Image.Image):
     return 0.0, 1.0
 
 
-def apply_bottom_fade(img_rgba: Image.Image, fade_fraction: float = 0.35) -> Image.Image:
-    """Fade the alpha channel to 0 over the bottom `fade_fraction` of the wig.
+def apply_bottom_fade(img_rgba: Image.Image,
+                      fade_fraction: float = 0.25,
+                      side_fraction: float = 0.12) -> Image.Image:
+    """Fade wig alpha at the bottom and sides for natural skin blending.
 
-    This removes the hard horizontal edge that appears where the wig meets
-    the face, making the hairstyle blend naturally into the skin rather than
-    ending with a sharp line.  A fade_fraction of 0.35 means the bottom 35 %
-    of the wig (e.g. sideburns / hair ends) gradually dissolves to transparent.
+    fade_fraction — bottom N% fades to transparent (hairline / forehead edge).
+    side_fraction — left/right N% fades to transparent (temple / sideburn edge).
+    Both gradients are multiplied together so corners fade smoothly.
     """
     w, h = img_rgba.size
+
+    # Horizontal gradient: 0 at left/right edges, 255 in centre
+    fade_w = round(w * side_fraction)
+    h_line = Image.new("L", (w, 1), 255)
+    for dx in range(fade_w):
+        v = round(255 * dx / fade_w)
+        h_line.putpixel((dx, 0), v)
+        h_line.putpixel((w - 1 - dx, 0), v)
+    horiz_grad = h_line.resize((w, h), Image.NEAREST)
+
+    # Vertical gradient: 255 at top, 0 at bottom edge
     fade_h = round(h * fade_fraction)
-    fade_start = h - fade_h
-
-    # Build a linear gradient mask: 255 above fade_start, 0 at image bottom
-    gradient = Image.new("L", (w, h), 255)
-    draw = ImageDraw.Draw(gradient)
+    v_line = Image.new("L", (1, h), 255)
     for dy in range(fade_h):
-        value = round(255 * (1.0 - dy / fade_h))
-        draw.line([(0, fade_start + dy), (w - 1, fade_start + dy)], fill=value)
+        v_line.putpixel((0, h - fade_h + dy), round(255 * (1.0 - dy / fade_h)))
+    vert_grad = v_line.resize((w, h), Image.NEAREST)
 
-    # Multiply existing alpha by the gradient (C-level op in PIL)
+    # Combine both gradients, then multiply into the wig's existing alpha
+    gradient = ImageChops.multiply(horiz_grad, vert_grad)
     alpha = img_rgba.split()[3]
     new_alpha = ImageChops.multiply(alpha, gradient)
     r, g, b, _ = img_rgba.split()
@@ -222,7 +231,7 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     overlay_h = min(overlay_h, round(fh * 0.80))  # hard upper cap
 
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
-    wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.22)
+    wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.25, side_fraction=0.12)
 
     # Crown anchor: place wig so the first opaque hair pixel in the PNG lands
     # exactly at fy (the top of the detected face bbox).
