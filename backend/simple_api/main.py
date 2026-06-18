@@ -91,12 +91,12 @@ def make_placeholder_pic(picture_id: int):
 #              Anchoring from the wig-bottom avoids the wig floating off-frame
 #              on passport / close-up photos where fy ≈ 0.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.1, "forehead": 0.15},  # Messy Textured
-    2: {"w": 1.0, "forehead": 0.15},  # Classic Pompadour
-    3: {"w": 1.1, "forehead": 0.12},  # Short Slick
-    4: {"w": 1.1, "forehead": 0.15},  # Side Sweep
+    1: {"w": 1.1, "forehead": 0.30},  # Messy Textured
+    2: {"w": 1.0, "forehead": 0.28},  # Classic Pompadour
+    3: {"w": 1.1, "forehead": 0.25},  # Short Slick
+    4: {"w": 1.1, "forehead": 0.30},  # Side Sweep
 }
-DEFAULT_WIG_PARAMS = {"w": 1.0, "forehead": 0.15}
+DEFAULT_WIG_PARAMS = {"w": 1.0, "forehead": 0.28}
 
 
 def remove_white_background(img: Image.Image,
@@ -167,11 +167,17 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     overlay_w = min(overlay_w, round(user_img.width * 0.85))
     aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
+    # Cap wig height at 65 % of face height so tall wigs don't push most of
+    # the wig above the image frame on passport / close-up photos.
+    max_h = round(fh * 0.65)
+    if overlay_h > max_h:
+        overlay_h = max_h
+        overlay_w = min(round(overlay_h / aspect), round(user_img.width * 0.85))
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
 
     # Anchor: the BOTTOM of the wig sits at `forehead` fraction into the face
-    # box (e.g. 0.15 = upper-forehead line). Using the bottom edge as anchor
-    # keeps the wig on the head regardless of photo type (passport vs casual).
+    # box. 0.30 = wig bottom at ~upper-forehead, so most of the wig is visible
+    # above the head even on passport photos where fy ≈ 0.
     forehead_y = round(fy + params["forehead"] * fh)
     x = round(fx + fw / 2 - overlay_w / 2)
     y = forehead_y - overlay_h
