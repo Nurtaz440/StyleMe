@@ -57,9 +57,7 @@ HAIR_STYLES = [
     {"id": 2, "name": "classic_pompadour", "label": "Classic Pompadour"},
     {"id": 3, "name": "short_slick",       "label": "Short Slick"},
     {"id": 4, "name": "side_sweep",        "label": "Side Sweep"},
-    {"id": 5, "name": "natural",           "label": "Natural"},
     {"id": 6, "name": "blaze_crop",        "label": "Blaze Crop"},
-    {"id": 7, "name": "midnight_quiff",    "label": "Midnight Quiff"},
 ]
 
 # Map style id -> wig PNG filename (served from /wigs/ static endpoint)
@@ -68,9 +66,7 @@ WIG_FILES = {
     2: "hair_pompadour1.png",
     3: "hair_short_black.png",
     4: "hair_pompadour2.png",
-    5: "hair_natural.png",
     6: "hair_blaze_crop.png",
-    7: "hair_midnight_quiff.png",
 }
 
 MODEL_PICTURES = [
@@ -78,9 +74,7 @@ MODEL_PICTURES = [
     {"id": 2, "file_name": "Classic Pompadour", "file_path": None, "hair_style_id": 2, "face_shape_id": None, "hair_length_id": 2},
     {"id": 3, "file_name": "Short Slick",       "file_path": None, "hair_style_id": 3, "face_shape_id": None, "hair_length_id": 1},
     {"id": 4, "file_name": "Side Sweep",        "file_path": None, "hair_style_id": 4, "face_shape_id": None, "hair_length_id": 2},
-    {"id": 5, "file_name": "Natural",           "file_path": None, "hair_style_id": 5, "face_shape_id": None, "hair_length_id": 1},
     {"id": 6, "file_name": "Blaze Crop",        "file_path": None, "hair_style_id": 6, "face_shape_id": None, "hair_length_id": 1},
-    {"id": 7, "file_name": "Midnight Quiff",    "file_path": None, "hair_style_id": 7, "face_shape_id": None, "hair_length_id": 2},
 ]
 
 pictures_store = {}
@@ -101,9 +95,7 @@ WIG_OVERLAY_PARAMS = {
     2: {"w": 1.20},  # Classic Pompadour (confirmed working)
     3: {"w": 1.20},  # Short Slick
     4: {"w": 1.05},  # Side Sweep
-    5: {"w": 1.20},  # Natural
     6: {"w": 1.20},  # Blaze Crop
-    7: {"w": 1.20},  # Midnight Quiff
 }
 DEFAULT_WIG_PARAMS = {"w": 1.15}
 
