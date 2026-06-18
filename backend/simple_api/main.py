@@ -159,11 +159,6 @@ def remove_white_background(img: Image.Image,
         return int(255 * (hard_threshold - lum) / span)
 
     new_alpha = luminance.point(lum_to_alpha)
-    # Erode alpha by 1 px: MinFilter(3) takes the minimum value in each 3×3
-    # neighbourhood, which shrinks the opaque region by one pixel on every edge.
-    # This clips the semi-transparent fringe pixels that would otherwise appear
-    # as a grey halo when the wig is composited over the user's dark hair.
-    new_alpha = new_alpha.filter(ImageFilter.MinFilter(3))
     img.putalpha(new_alpha)
     return img
 
@@ -203,6 +198,13 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     if not has_transparency:
         wig_raw = remove_white_background(wig_raw)
 
+    # Erode alpha by 1 px on ALL wigs (transparent-bg and white-bg alike).
+    # Clips semi-transparent fringe pixels at the wig boundary that otherwise
+    # appear as a bright/grey stripe where the wig meets the person's hair.
+    _a = wig_raw.split()[3].filter(ImageFilter.MinFilter(3))
+    _r, _g, _b, _ = wig_raw.split()
+    wig_raw = Image.merge("RGBA", (_r, _g, _b, _a))
+
     # Find where actual hair content starts and ends in the PNG.
     hair_top_frac, _ = hair_content_fractions(wig_raw)
 
@@ -222,13 +224,13 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     overlay_h = min(overlay_h, round(fh * 0.70))
 
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
-    wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.15)
+    wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.22)
 
     # Crown anchor: place the wig so the hair crown (top of actual opaque hair
     # content) lands just above the detected face bounding box top (fy).
     # This is photo-independent — it works the same whether the face fills the
     # whole frame (passport) or sits in the middle (casual portrait / selfie).
-    crown_margin  = round(fh * 0.08)          # small gap above face for natural look
+    crown_margin  = round(fh * 0.04)          # small gap above face for natural look
     hair_crown_px = round(hair_top_frac * overlay_h)
     x = round(fx + fw / 2 - overlay_w / 2)
     y = (fy - crown_margin) - hair_crown_px
