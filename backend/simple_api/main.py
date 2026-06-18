@@ -85,36 +85,27 @@ def make_placeholder_pic(picture_id: int):
     }
 
 # Per-style overlay tuning.
-# "w"        = wig width as a multiple of the detected face width
-# "forehead" = fraction of face height where the wig bottom edge sits
-#              (0.15 = wig bottom lands at top 15% of face = upper forehead)
-#              Anchoring from the wig-bottom avoids the wig floating off-frame
-#              on passport / close-up photos where fy ≈ 0.
+# "w" = wig width as a multiple of the detected face width.
+# Positioning is driven by crown anchor (see composite_wig), not a per-style param.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.20, "forehead": 0.32},  # Messy Textured
-    2: {"w": 1.20, "forehead": 0.28},  # Classic Pompadour (confirmed working)
-    3: {"w": 1.20, "forehead": 0.28},  # Short Slick
-    4: {"w": 1.05, "forehead": 0.42},  # Side Sweep (large PNG, full-coverage hair)
+    1: {"w": 1.20},  # Messy Textured
+    2: {"w": 1.20},  # Classic Pompadour (confirmed working)
+    3: {"w": 1.20},  # Short Slick
+    4: {"w": 1.05},  # Side Sweep
 }
-DEFAULT_WIG_PARAMS = {"w": 1.15, "forehead": 0.28}
+DEFAULT_WIG_PARAMS = {"w": 1.15}
 
 
-def hair_content_bottom_fraction(img_rgba: Image.Image) -> float:
-    """Return the fraction (0-1) of the PNG height where the last opaque hair
-    pixel is found.  Uses PIL getbbox() on a binarised alpha channel (C-level
-    scan) for efficiency.  Falls back to 1.0 if nothing is found.
-
-    Wig PNGs typically have the hair crown at the top and transparent space at
-    the bottom.  Anchoring to this value (rather than the full image height)
-    means the real hair bottom aligns with the target forehead line instead of
-    the PNG's empty lower region.
-    """
-    alpha = img_rgba.split()[3]
+def hair_content_fractions(img_rgba: Image.Image):
+    """Return (top_frac, bottom_frac) — where opaque hair content starts and
+    ends vertically as fractions of the PNG height.  Uses getbbox() on a
+    binarised alpha channel so the scan runs at C speed."""
+    alpha    = img_rgba.split()[3]
     alpha_bin = alpha.point(lambda a: 255 if a > 30 else 0)
-    bbox = alpha_bin.getbbox()  # (left, top, right, bottom) or None
+    bbox = alpha_bin.getbbox()          # (left, top, right, bottom) or None
     if bbox:
-        return bbox[3] / img_rgba.height
-    return 1.0
+        return bbox[1] / img_rgba.height, bbox[3] / img_rgba.height
+    return 0.0, 1.0
 
 
 def apply_bottom_fade(img_rgba: Image.Image, fade_fraction: float = 0.35) -> Image.Image:
@@ -177,33 +168,6 @@ def remove_white_background(img: Image.Image,
     return img
 
 
-def crop_to_face_zoom(img: Image.Image, face: list) -> Image.Image:
-    """Return a gently zoomed crop (~1.25×) centered on the upper face / hair region.
-    Crops to 80 % of the image dimensions, biased upward so the hair is central."""
-    fx, fy, fw, fh = face[:4]
-    cx = fx + fw // 2
-    # Bias the vertical focus toward the top of the face so hair fills the frame
-    cy = fy + fh // 4
-
-    crop_w = int(img.width  * 0.80)
-    crop_h = int(img.height * 0.80)
-
-    x1 = max(0, cx - crop_w // 2)
-    y1 = max(0, cy - crop_h // 3)
-    x2 = x1 + crop_w
-    y2 = y1 + crop_h
-
-    # Clamp to image bounds
-    if x2 > img.width:
-        x2 = img.width
-        x1 = max(0, x2 - crop_w)
-    if y2 > img.height:
-        y2 = img.height
-        y1 = max(0, y2 - crop_h)
-
-    return img.crop((x1, y1, x2, y2))
-
-
 def composite_wig(user_photo_url: str, wig_filename: str,
                   face: list, style_id: int) -> bytes:
     """
@@ -239,38 +203,35 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     if not has_transparency:
         wig_raw = remove_white_background(wig_raw)
 
-    # Find where the actual hair content ends vertically.
-    # Wig PNGs have the crown at the top and transparent/white space below the
-    # hair ends. Anchoring to the real hair bottom (not the PNG image bottom)
-    # keeps the hair aligned with the forehead regardless of how much empty
-    # space the PNG has beneath the hair.
-    hair_bottom_frac = hair_content_bottom_fraction(wig_raw)
+    # Find where actual hair content starts and ends in the PNG.
+    hair_top_frac, _ = hair_content_fractions(wig_raw)
 
     # Compute overlay size from face bbox [x, y, w, h]
     fx, fy, fw, fh = face[:4]
-    # Compute anchor first so we can use it to constrain overlay height.
-    # forehead_y = where the actual hair BOTTOM should land on the face.
-    forehead_y = round(fy + params["forehead"] * fh)
 
     overlay_w = round(fw * params["w"])
     overlay_w = min(overlay_w, round(user_img.width * 0.85))
     aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
-    # Cap 1: don't dwarf the face
-    overlay_h = min(overlay_h, round(fh * 0.85))
-    # Cap 2: prevent the wig from floating above the image frame.
-    # hair_bottom_frac × overlay_h must not exceed forehead_y, otherwise
-    # y = forehead_y - actual_hair_bottom becomes deeply negative (wig above frame).
-    if hair_bottom_frac > 0.01:
-        overlay_h = min(overlay_h, round(forehead_y / hair_bottom_frac))
+    # Cap height at 55 % of face height so the wig doesn't smother the face.
+    # Maintain aspect ratio so the wig doesn't look squished.
+    cap_h = round(fh * 0.55)
+    if overlay_h > cap_h:
+        scale     = cap_h / overlay_h
+        overlay_h = cap_h
+        overlay_w = max(1, round(overlay_w * scale))
 
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
     wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.15)
 
-    # Anchor: align the ACTUAL HAIR BOTTOM (not the PNG image bottom) with forehead_y.
-    actual_hair_bottom_px = round(hair_bottom_frac * overlay_h)
+    # Crown anchor: place the wig so the hair crown (top of actual opaque hair
+    # content) lands just above the detected face bounding box top (fy).
+    # This is photo-independent — it works the same whether the face fills the
+    # whole frame (passport) or sits in the middle (casual portrait / selfie).
+    crown_margin  = round(fh * 0.08)          # small gap above face for natural look
+    hair_crown_px = round(hair_top_frac * overlay_h)
     x = round(fx + fw / 2 - overlay_w / 2)
-    y = forehead_y - actual_hair_bottom_px
+    y = (fy - crown_margin) - hair_crown_px
 
     # Place the resized wig on a transparent canvas the same size as the photo,
     # clipping any parts that go outside the frame.
@@ -286,11 +247,9 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     # Alpha-composite: wig sits on top; transparent wig pixels → user photo shows
     result_rgba = Image.alpha_composite(user_img, wig_layer)
 
-    # Flatten to RGB, gently zoom to face, encode as JPEG
-    result_rgb = result_rgba.convert("RGB")
-    result_rgb = crop_to_face_zoom(result_rgb, face)
+    # Flatten to RGB and encode as JPEG
     buf = io.BytesIO()
-    result_rgb.save(buf, format="JPEG", quality=92)
+    result_rgba.convert("RGB").save(buf, format="JPEG", quality=92)
     return buf.getvalue()
 
 
