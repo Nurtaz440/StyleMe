@@ -206,7 +206,7 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     wig_raw = Image.merge("RGBA", (_r, _g, _b, _a))
 
     # Find where actual hair content starts and ends in the PNG.
-    hair_top_frac, _ = hair_content_fractions(wig_raw)
+    hair_top_frac, hair_bottom_frac = hair_content_fractions(wig_raw)
 
     # Compute overlay size from face bbox [x, y, w, h]
     fx, fy, fw, fh = face[:4]
@@ -215,22 +215,24 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     overlay_w = min(overlay_w, round(user_img.width * 0.85))
     aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
-    # Cap height at 55 % of face height so the wig doesn't smother the face.
-    # Maintain aspect ratio so the wig doesn't look squished.
-    # Cap height only — do NOT scale overlay_w down with it.
-    # Scaling width when capping height produces a tiny narrow wig on tall-
-    # aspect-ratio PNGs (e.g. hair_messy.png ~1.3:1).  Width is already set
-    # correctly by fw × w; height just clips extra transparent padding below.
-    overlay_h = min(overlay_h, round(fh * 0.70))
+    overlay_h = min(overlay_h, round(fh * 0.70))  # hard upper cap
+
+    # Hairline constraint: ensure the wig's opaque hair bottom lands at the
+    # natural hairline (~28 % into the face box from its top).  Without this,
+    # tall-aspect-ratio PNGs produce an overlay_h that is too large, pushing
+    # the hair content well past the forehead and making the wig look too low
+    # or leaving the true hairline uncovered above the wig edge.
+    # Derivation: y = fy - crown_margin;  hair_bottom = y + hair_bottom_frac*h
+    #   => hair_bottom_frac * overlay_h_max = 0.28*fh + crown_margin
+    crown_margin = round(fh * 0.04)
+    if hair_bottom_frac > 0.01:
+        overlay_h_max = round((0.28 * fh + crown_margin) / hair_bottom_frac)
+        overlay_h = min(overlay_h, overlay_h_max)
 
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
     wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.22)
 
-    # Crown anchor: place the wig so the hair crown (top of actual opaque hair
-    # content) lands just above the detected face bounding box top (fy).
-    # This is photo-independent — it works the same whether the face fills the
-    # whole frame (passport) or sits in the middle (casual portrait / selfie).
-    crown_margin  = round(fh * 0.04)          # small gap above face for natural look
+    # Crown anchor: hair crown lands just above the detected face bbox top (fy).
     hair_crown_px = round(hair_top_frac * overlay_h)
     x = round(fx + fw / 2 - overlay_w / 2)
     y = (fy - crown_margin) - hair_crown_px
