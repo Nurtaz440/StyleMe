@@ -91,12 +91,12 @@ def make_placeholder_pic(picture_id: int):
 #              Anchoring from the wig-bottom avoids the wig floating off-frame
 #              on passport / close-up photos where fy ≈ 0.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.1, "forehead": 0.30},  # Messy Textured
-    2: {"w": 1.0, "forehead": 0.28},  # Classic Pompadour
-    3: {"w": 1.1, "forehead": 0.25},  # Short Slick
-    4: {"w": 1.1, "forehead": 0.30},  # Side Sweep
+    1: {"w": 1.35, "forehead": 0.30},  # Messy Textured
+    2: {"w": 1.25, "forehead": 0.28},  # Classic Pompadour
+    3: {"w": 1.30, "forehead": 0.25},  # Short Slick
+    4: {"w": 1.35, "forehead": 0.30},  # Side Sweep
 }
-DEFAULT_WIG_PARAMS = {"w": 1.0, "forehead": 0.28}
+DEFAULT_WIG_PARAMS = {"w": 1.25, "forehead": 0.28}
 
 
 def hair_content_bottom_fraction(img_rgba: Image.Image) -> float:
@@ -177,6 +177,33 @@ def remove_white_background(img: Image.Image,
     return img
 
 
+def crop_to_face_zoom(img: Image.Image, face: list) -> Image.Image:
+    """Return a gently zoomed crop (~1.25×) centered on the upper face / hair region.
+    Crops to 80 % of the image dimensions, biased upward so the hair is central."""
+    fx, fy, fw, fh = face[:4]
+    cx = fx + fw // 2
+    # Bias the vertical focus toward the top of the face so hair fills the frame
+    cy = fy + fh // 4
+
+    crop_w = int(img.width  * 0.80)
+    crop_h = int(img.height * 0.80)
+
+    x1 = max(0, cx - crop_w // 2)
+    y1 = max(0, cy - crop_h // 3)
+    x2 = x1 + crop_w
+    y2 = y1 + crop_h
+
+    # Clamp to image bounds
+    if x2 > img.width:
+        x2 = img.width
+        x1 = max(0, x2 - crop_w)
+    if y2 > img.height:
+        y2 = img.height
+        y1 = max(0, y2 - crop_h)
+
+    return img.crop((x1, y1, x2, y2))
+
+
 def composite_wig(user_photo_url: str, wig_filename: str,
                   face: list, style_id: int) -> bytes:
     """
@@ -226,7 +253,7 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
     # Cap height so the wig doesn't dwarf the face on close-up/passport shots
-    overlay_h = min(overlay_h, round(fh * 0.65))
+    overlay_h = min(overlay_h, round(fh * 0.85))
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
     wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.15)
 
@@ -252,9 +279,11 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     # Alpha-composite: wig sits on top; transparent wig pixels → user photo shows
     result_rgba = Image.alpha_composite(user_img, wig_layer)
 
-    # Flatten to RGB and encode as JPEG (no transparency in final image)
+    # Flatten to RGB, gently zoom to face, encode as JPEG
+    result_rgb = result_rgba.convert("RGB")
+    result_rgb = crop_to_face_zoom(result_rgb, face)
     buf = io.BytesIO()
-    result_rgba.convert("RGB").save(buf, format="JPEG", quality=92)
+    result_rgb.save(buf, format="JPEG", quality=92)
     return buf.getvalue()
 
 
