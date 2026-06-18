@@ -121,48 +121,58 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     Download the user's photo, load the wig PNG, composite them with PIL,
     and return the result as JPEG bytes.
 
-    - Wigs that already carry an alpha channel (PNG transparency) are used
-      directly — no white removal needed.
-    - Wigs with a white/near-white background have it stripped via
-      remove_white_background() before compositing.
-    - Overlay is sized and positioned using the face bounding box detected
-      at upload time, so it lines up with the actual face in the photo.
+    Uses Image.alpha_composite so that transparent wig areas correctly reveal
+    the user's face beneath (not a black hole or checkerboard).
     """
     params = WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_WIG_PARAMS)
 
-    # Load user photo
+    # Load user photo — go through RGB first to normalise any CMYK/P modes
     resp = requests.get(user_photo_url, timeout=20)
     resp.raise_for_status()
-    user_img = Image.open(io.BytesIO(resp.content)).convert("RGBA")
+    user_img = Image.open(io.BytesIO(resp.content)).convert("RGB").convert("RGBA")
 
-    # Load wig
+    # Load wig — convert to RGBA regardless of source mode (P, LA, RGB, …)
     wig_path = os.path.join(WIG_DIR, wig_filename)
-    wig_img = Image.open(wig_path).convert("RGBA")
+    wig_raw  = Image.open(wig_path)
+    # Preserve palette transparency before converting
+    if wig_raw.mode == "P":
+        wig_raw = wig_raw.convert("RGBA")
+    else:
+        wig_raw = wig_raw.convert("RGBA")
 
-    # If the wig has no meaningful transparency, remove its white background
-    alpha_vals = [p[3] for p in wig_img.getdata()]
+    # If the wig has no meaningful transparency, strip its white background
+    alpha_vals = list(wig_raw.split()[3].getdata())
     has_transparency = any(a < 200 for a in alpha_vals)
     if not has_transparency:
-        wig_img = remove_white_background(wig_img)
+        wig_raw = remove_white_background(wig_raw)
 
     # Compute overlay size and position from face bbox [x, y, w, h]
     fx, fy, fw, fh = face[:4]
     overlay_w = round(fw * params["w"])
-    aspect    = wig_img.height / wig_img.width
+    aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
-    wig_resized = wig_img.resize((overlay_w, overlay_h), Image.LANCZOS)
+    wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
 
     x = round(fx + fw / 2 - overlay_w / 2)
     y = round(fy + params["y"] * fh)
 
-    # Composite
-    canvas = user_img.copy()
-    canvas.paste(wig_resized, (x, y), wig_resized)
+    # Place the resized wig on a transparent canvas the same size as the photo,
+    # clipping any parts that go outside the frame.
+    wig_layer = Image.new("RGBA", user_img.size, (0, 0, 0, 0))
+    paste_x = max(0, x)
+    paste_y = max(0, y)
+    crop_x  = paste_x - x   # >0 when wig extends left of frame
+    crop_y  = paste_y - y   # >0 when wig extends above frame
+    if crop_x > 0 or crop_y > 0:
+        wig_resized = wig_resized.crop((crop_x, crop_y, overlay_w, overlay_h))
+    wig_layer.paste(wig_resized, (paste_x, paste_y))
 
-    # Return as JPEG bytes
-    result = canvas.convert("RGB")
+    # Alpha-composite: wig sits on top; transparent wig pixels → user photo shows
+    result_rgba = Image.alpha_composite(user_img, wig_layer)
+
+    # Flatten to RGB and encode as JPEG (no transparency in final image)
     buf = io.BytesIO()
-    result.save(buf, format="JPEG", quality=92)
+    result_rgba.convert("RGB").save(buf, format="JPEG", quality=92)
     return buf.getvalue()
 
 
