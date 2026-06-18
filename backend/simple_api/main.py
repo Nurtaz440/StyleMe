@@ -91,11 +91,11 @@ def make_placeholder_pic(picture_id: int):
 # "w" = wig width as a multiple of the detected face width.
 # Positioning is driven by crown anchor (see composite_wig), not a per-style param.
 WIG_OVERLAY_PARAMS = {
-    1: {"w": 1.20},  # Messy Textured
-    2: {"w": 1.20},  # Classic Pompadour (confirmed working)
-    3: {"w": 1.20},  # Short Slick
-    4: {"w": 1.05},  # Side Sweep
-    6: {"w": 1.20},  # Blaze Crop
+    1: {"w": 1.45},  # Messy Textured
+    2: {"w": 1.45},  # Classic Pompadour
+    3: {"w": 1.45},  # Short Slick
+    4: {"w": 1.25},  # Side Sweep (large PNG, keep slightly narrower)
+    6: {"w": 1.45},  # Blaze Crop
 }
 DEFAULT_WIG_PARAMS = {"w": 1.15}
 
@@ -219,7 +219,7 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     overlay_w = min(overlay_w, round(user_img.width * 0.85))
     aspect    = wig_raw.height / wig_raw.width
     overlay_h = round(overlay_w * aspect)
-    overlay_h = min(overlay_h, round(fh * 0.70))  # hard upper cap
+    overlay_h = min(overlay_h, round(fh * 0.80))  # hard upper cap
 
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
     wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.22)
