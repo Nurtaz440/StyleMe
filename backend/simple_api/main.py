@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
 import os, random, uuid, io, requests
+import numpy as np
+import onnxruntime as ort
 from PIL import Image, ImageOps, ImageDraw, ImageChops, ImageFilter
 
 app = FastAPI()
@@ -22,6 +24,51 @@ cloudinary.config(
 
 WIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wigs")
 app.mount("/wigs", StaticFiles(directory=WIG_DIR), name="wigs")
+
+GENDER_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "genderage.onnx")
+_gender_session = None
+
+
+def _get_gender_session():
+    global _gender_session
+    if _gender_session is None:
+        _gender_session = ort.InferenceSession(GENDER_MODEL_PATH, providers=["CPUExecutionProvider"])
+    return _gender_session
+
+
+def detect_gender(img: Image.Image, face_bbox: list) -> str:
+    """Detect 'male' or 'female' from a face crop using the InsightFace
+    genderage.onnx model (96x96 aligned input, output[:2] = gender logits).
+    Falls back to 'unisex' on any failure so style filtering never hard-blocks
+    a user from seeing hair styles."""
+    try:
+        session    = _get_gender_session()
+        input_name = session.get_inputs()[0].name
+        size       = session.get_inputs()[0].shape[2]  # 96
+
+        fx, fy, fw, fh = face_bbox[:4]
+        x1, y1, x2, y2 = fx, fy, fx + fw, fy + fh
+        center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
+        scale = size / (max(x2 - x1, y2 - y1) * 1.5)
+
+        # Forward alignment is dst = scale*src + t. PIL's Image.transform
+        # wants the inverse (dst -> src) mapping for AFFINE resampling.
+        inv_scale = 1.0 / scale
+        tx = size / 2 - center_x * scale
+        ty = size / 2 - center_y * scale
+        aligned = img.convert("RGB").transform(
+            (size, size), Image.AFFINE,
+            (inv_scale, 0, -tx * inv_scale, 0, inv_scale, -ty * inv_scale),
+            resample=Image.BILINEAR
+        )
+
+        arr  = np.asarray(aligned, dtype=np.float32)   # (size, size, 3) RGB
+        blob = arr.transpose(2, 0, 1)[None, ...]        # (1, 3, size, size)
+        output = session.run(None, {input_name: blob})[0][0]
+        gender_idx = int(output[:2].argmax())
+        return "male" if gender_idx == 1 else "female"
+    except Exception:
+        return "unisex"
 
 BACKEND_URL = os.getenv("BACKEND_URL", "https://styleme-api.onrender.com")
 
@@ -53,12 +100,15 @@ HAIR_COLOURS = [
 ]
 
 HAIR_STYLES = [
-    {"id": 1, "name": "messy_textured",    "label": "Messy Textured"},
-    {"id": 2, "name": "classic_pompadour", "label": "Classic Pompadour"},
-    {"id": 3, "name": "short_slick",       "label": "Short Slick"},
-    {"id": 4, "name": "side_sweep",        "label": "Side Sweep"},
-    {"id": 6, "name": "blaze_crop",        "label": "Blaze Crop"},
-    {"id": 7, "name": "bangs_black",       "label": "Bangs Black Hair"},
+    {"id": 1,  "name": "messy_textured",    "label": "Messy Textured",    "gender": "male"},
+    {"id": 2,  "name": "classic_pompadour", "label": "Classic Pompadour", "gender": "male"},
+    {"id": 3,  "name": "short_slick",       "label": "Short Slick",       "gender": "male"},
+    {"id": 4,  "name": "side_sweep",        "label": "Side Sweep",        "gender": "male"},
+    {"id": 6,  "name": "blaze_crop",        "label": "Blaze Crop",        "gender": "male"},
+    {"id": 7,  "name": "bangs_black",       "label": "Bangs Black Hair",  "gender": "male"},
+    {"id": 8,  "name": "long_straight",     "label": "Long Straight",     "gender": "female"},
+    {"id": 9,  "name": "curly",             "label": "Curly",             "gender": "female"},
+    {"id": 10, "name": "wavy_luxurious",    "label": "Wavy Luxurious",    "gender": "female"},
 ]
 
 # Map style id -> wig PNG filename (served from /wigs/ static endpoint)
@@ -69,6 +119,9 @@ WIG_FILES = {
     4: "hair_pompadour2.png",
     6: "hair_blaze_crop.png",
     7: "hair_bangs_black.png",
+    8: "hair_long_straight_w.png",
+    9: "hair_curly_w.png",
+    10: "hair_wavy_luxurious_w.png",
 }
 
 MODEL_PICTURES = [
@@ -78,6 +131,9 @@ MODEL_PICTURES = [
     {"id": 4, "file_name": "Side Sweep",        "file_path": None, "hair_style_id": 4, "face_shape_id": None, "hair_length_id": 2},
     {"id": 6, "file_name": "Blaze Crop",        "file_path": None, "hair_style_id": 6, "face_shape_id": None, "hair_length_id": 1},
     {"id": 7, "file_name": "Bangs Black Hair",  "file_path": None, "hair_style_id": 7, "face_shape_id": None, "hair_length_id": 2},
+    {"id": 8, "file_name": "Long Straight",     "file_path": None, "hair_style_id": 8, "face_shape_id": None, "hair_length_id": 2},
+    {"id": 9, "file_name": "Curly",             "file_path": None, "hair_style_id": 9, "face_shape_id": None, "hair_length_id": 2},
+    {"id": 10,"file_name": "Wavy Luxurious",    "file_path": None, "hair_style_id": 10, "face_shape_id": None, "hair_length_id": 2},
 ]
 
 pictures_store = {}
@@ -100,6 +156,9 @@ WIG_OVERLAY_PARAMS = {
     4: {"w": 1.05},  # Side Sweep (large PNG)
     6: {"w": 1.20},  # Blaze Crop
     7: {"w": 1.20},  # Bangs Black Hair
+    8: {"w": 1.20},  # Long Straight
+    9: {"w": 1.20},  # Curly
+    10: {"w": 1.20}, # Wavy Luxurious
 }
 DEFAULT_WIG_PARAMS = {"w": 1.15}
 
@@ -332,7 +391,16 @@ def get_hair_colours():
     return HAIR_COLOURS
 
 @app.get("/hair_styles")
-def get_hair_styles():
+def get_hair_styles(user_picture_id: int = None):
+    """Return hair styles. If user_picture_id is given and that picture has a
+    detected gender, only styles matching that gender (or 'unisex') are
+    returned. Without it (or if detection was inconclusive), all styles
+    are returned so older app builds keep working unchanged."""
+    if user_picture_id is not None:
+        pic = pictures_store.get(user_picture_id)
+        gender = pic.get("gender") if pic else None
+        if gender in ("male", "female"):
+            return [s for s in HAIR_STYLES if s["gender"] in (gender, "unisex")]
     return HAIR_STYLES
 
 @app.get("/face_shapes")
@@ -340,9 +408,12 @@ def get_face_shapes():
     return FACE_SHAPES
 
 @app.get("/model_pictures")
-def get_model_pictures():
+def get_model_pictures(user_picture_id: int = None):
+    allowed_ids = {s["id"] for s in get_hair_styles(user_picture_id)}
     result = []
     for m in MODEL_PICTURES:
+        if m["hair_style_id"] not in allowed_ids:
+            continue
         pic = dict(m)
         wig_file = WIG_FILES.get(m["hair_style_id"])
         if wig_file:
@@ -361,6 +432,13 @@ async def upload_picture(file: UploadFile = File(...)):
             faces=True
         )
         faces = result.get("faces") or []
+        face = faces[0] if faces else None
+
+        gender = "unisex"
+        if face:
+            upload_img = ImageOps.exif_transpose(Image.open(io.BytesIO(contents)))
+            gender = detect_gender(upload_img, face)
+
         picture_id = abs(hash(result["public_id"])) % 1000000
         picture = {
             "id":           picture_id,
@@ -371,7 +449,8 @@ async def upload_picture(file: UploadFile = File(...)):
             "height":       result.get("height"),
             "width":        result.get("width"),
             "date_created": str(result.get("created_at", "")),
-            "face":         faces[0] if faces else None
+            "face":         face,
+            "gender":       gender
         }
         pictures_store[picture_id] = picture
         face_shape = random.choice(FACE_SHAPES)
