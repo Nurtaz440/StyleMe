@@ -331,7 +331,22 @@ def composite_wig(user_photo_url: str, wig_filename: str,
         # to ever reach real hair-spread coverage when only scaled up.
         overlay_w = round(user_img.width * params["width_frac"])
         overlay_h = round(overlay_w * aspect)
-        overlay_h = min(overlay_h, round(user_img.height * 0.95))
+
+        # Make sure the hair also reaches down to roughly shoulder level
+        # instead of stopping mid-frame. Selfies are typically framed
+        # face-to-chest, so approximate the shoulder line as 95% of the
+        # photo height. If the wig's natural height at the current width
+        # doesn't reach that far (measured from the top of the face bbox,
+        # where the wig gets anchored), scale BOTH dimensions up together
+        # — preserving aspect ratio — until it does. Width is intentionally
+        # left uncapped afterwards: any overflow past the photo edges is
+        # clipped automatically when the wig layer is pasted, so scaling up
+        # for height coverage never distorts or crops the hair shape.
+        shoulder_y = round(user_img.height * 0.95)
+        min_required_h = max(0, shoulder_y - fy)
+        if overlay_h < min_required_h:
+            overlay_w = round(min_required_h / aspect)
+            overlay_h = round(overlay_w * aspect)
     else:
         overlay_w = round(fw * params["w"])
         overlay_w = min(overlay_w, round(user_img.width * 0.75))
