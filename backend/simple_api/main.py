@@ -362,7 +362,11 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     # exactly at fy (the top of the detected face bbox).
     # crown_margin=0 lands the hair crown on fy; a positive value shifts it UP
     # (above fy), a negative value shifts it DOWN (into the face area).
-    crown_margin  = 0
+    # Female styles need a positive margin: fy is the top of the *face*
+    # bbox (around brow/hairline), but the user's actual scalp/parting
+    # sits well above that — without a margin the wig's crown lands right
+    # at fy and a sliver of the original hair/parting shows above it.
+    crown_margin  = round(fh * 0.35) if is_female_style else 0
     hair_crown_px = round(hair_top_frac * overlay_h)
     x = round(fx + fw / 2 - overlay_w / 2)
     y = (fy - crown_margin) - hair_crown_px
