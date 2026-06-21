@@ -162,6 +162,18 @@ WIG_OVERLAY_PARAMS = {
 }
 DEFAULT_WIG_PARAMS = {"w": 1.15}
 
+# Female (long-hair) styles use a separate sizing path — see the
+# is_female_style branch in composite_wig(). These wigs need to cover the
+# user's existing hair edge-to-edge and fall to their natural length instead
+# of being clipped to the face bbox like the short male cuts are.
+FEMALE_STYLE_IDS = {8, 9, 10}
+FEMALE_WIG_OVERLAY_PARAMS = {
+    8: {"w": 1.45},   # Long Straight
+    9: {"w": 1.55},   # Curly — fuller silhouette needs extra width
+    10: {"w": 1.45},  # Wavy Luxurious
+}
+DEFAULT_FEMALE_WIG_PARAMS = {"w": 1.45}
+
 
 def hair_content_fractions(img_rgba: Image.Image):
     """Return (top_frac, bottom_frac) — where opaque hair content starts and
@@ -248,7 +260,12 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     Uses Image.alpha_composite so that transparent wig areas correctly reveal
     the user's face beneath (not a black hole or checkerboard).
     """
-    params = WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_WIG_PARAMS)
+    is_female_style = style_id in FEMALE_STYLE_IDS
+    params = (
+        FEMALE_WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_FEMALE_WIG_PARAMS)
+        if is_female_style
+        else WIG_OVERLAY_PARAMS.get(style_id, DEFAULT_WIG_PARAMS)
+    )
 
     # Load user photo.
     # Apply EXIF transpose so PIL's pixel grid matches the orientation that
@@ -298,10 +315,20 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     fx, fy, fw, fh = face[:4]
 
     overlay_w = round(fw * params["w"])
-    overlay_w = min(overlay_w, round(user_img.width * 0.75))
     aspect    = wig_raw.height / wig_raw.width
-    overlay_h = round(overlay_w * aspect)
-    overlay_h = min(overlay_h, round(fh * 0.80))  # hard upper cap
+
+    if is_female_style:
+        # Long-hair styles: fit width-to-width and height-to-height against
+        # the photo itself (not the face bbox) so the wig fully covers the
+        # user's original hair on the sides and falls to its natural length
+        # instead of being clipped to ~face height.
+        overlay_w = min(overlay_w, round(user_img.width * 0.95))
+        overlay_h = round(overlay_w * aspect)
+        overlay_h = min(overlay_h, round(user_img.height * 0.95))
+    else:
+        overlay_w = min(overlay_w, round(user_img.width * 0.75))
+        overlay_h = round(overlay_w * aspect)
+        overlay_h = min(overlay_h, round(fh * 0.80))  # hard upper cap
 
     wig_resized = wig_raw.resize((overlay_w, overlay_h), Image.LANCZOS)
     wig_resized = apply_bottom_fade(wig_resized, fade_fraction=0.25, side_fraction=0.12)
