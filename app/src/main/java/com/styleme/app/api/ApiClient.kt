@@ -98,6 +98,7 @@ object ApiClient {
 
         @GET("model_pictures")
         suspend fun getModelPictures(
+            @Query("user_picture_id") userPictureId: Int? = null,
             @Query("skip")  skip:  Int = 0,
             @Query("limit") limit: Int = 100
         ): Response<List<ModelPicture>>
