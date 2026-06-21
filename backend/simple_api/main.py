@@ -166,13 +166,19 @@ DEFAULT_WIG_PARAMS = {"w": 1.15}
 # is_female_style branch in composite_wig(). These wigs need to cover the
 # user's existing hair edge-to-edge and fall to their natural length instead
 # of being clipped to the face bbox like the short male cuts are.
+#
+# "width_frac" is a fraction of the *photo's* width (not the face width).
+# Face width is a poor proxy for how wide long hair spreads in a selfie —
+# it's typically only 20-30% of the frame, so multiplying it by ~1.5 (as the
+# male styles do relative to face width) never gets close to covering the
+# user's actual hair spread, which can fill most of the frame.
 FEMALE_STYLE_IDS = {8, 9, 10}
 FEMALE_WIG_OVERLAY_PARAMS = {
-    8: {"w": 1.45},   # Long Straight
-    9: {"w": 1.55},   # Curly — fuller silhouette needs extra width
-    10: {"w": 1.45},  # Wavy Luxurious
+    8: {"width_frac": 0.95},   # Long Straight
+    9: {"width_frac": 1.00},   # Curly — fuller silhouette needs full width
+    10: {"width_frac": 0.95},  # Wavy Luxurious
 }
-DEFAULT_FEMALE_WIG_PARAMS = {"w": 1.45}
+DEFAULT_FEMALE_WIG_PARAMS = {"width_frac": 0.95}
 
 
 def hair_content_fractions(img_rgba: Image.Image):
@@ -314,18 +320,20 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     # Compute overlay size from face bbox [x, y, w, h]
     fx, fy, fw, fh = face[:4]
 
-    overlay_w = round(fw * params["w"])
-    aspect    = wig_raw.height / wig_raw.width
+    aspect = wig_raw.height / wig_raw.width
 
     if is_female_style:
         # Long-hair styles: fit width-to-width and height-to-height against
         # the photo itself (not the face bbox) so the wig fully covers the
         # user's original hair on the sides and falls to its natural length
-        # instead of being clipped to ~face height.
-        overlay_w = min(overlay_w, round(user_img.width * 0.95))
+        # instead of being clipped to ~face height. Driven directly off the
+        # photo's width — face width is too small a fraction of the frame
+        # to ever reach real hair-spread coverage when only scaled up.
+        overlay_w = round(user_img.width * params["width_frac"])
         overlay_h = round(overlay_w * aspect)
         overlay_h = min(overlay_h, round(user_img.height * 0.95))
     else:
+        overlay_w = round(fw * params["w"])
         overlay_w = min(overlay_w, round(user_img.width * 0.75))
         overlay_h = round(overlay_w * aspect)
         overlay_h = min(overlay_h, round(fh * 0.80))  # hard upper cap
