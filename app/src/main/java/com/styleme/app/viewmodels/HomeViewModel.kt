@@ -40,6 +40,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val currentPictureId = MutableLiveData<Int?>()
     val originalPictureId = MutableLiveData<Int?>()
     val detectedFaceShape = MutableLiveData<FaceShape?>()
+    val detectedGender = MutableLiveData<String?>()
 
 
     var cachedBitmap: Bitmap? = null
@@ -54,6 +55,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 currentPictureId.value  = pic.id
                 originalPictureId.value = pic.id
                 detectedFaceShape.value = shape
+                detectedGender.value    = pic.gender
                 cachedBitmap = MockRepository.makePlaceholderBitmap(
                     0xFF7B4FBE.toInt(), "Your Photo\nFace: ${shape.label}"
                 )
@@ -79,6 +81,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     currentPictureId.value  = body.picture.id
                     originalPictureId.value = body.picture.id
                     detectedFaceShape.value = body.faceShape
+                    detectedGender.value    = body.picture.gender
 
                     // 2 — Load the returned image straight away
                     body.picture.filePath?.let { loadPictureFromUrl(it) }

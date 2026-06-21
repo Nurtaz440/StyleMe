@@ -26,7 +26,7 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
 
     val updatedPictureId = MutableLiveData<Int?>()
 
-    fun loadModelPictures() {
+    fun loadModelPictures(userPictureId: Int? = null) {
         _modelPictures.value = Resource.Loading
         viewModelScope.launch {
             if (MockRepository.enabled) {
@@ -35,7 +35,7 @@ class HairStyleViewModel(application: Application) : AndroidViewModel(applicatio
                 return@launch
             }
             try {
-                val r = picturesApi.getModelPictures()
+                val r = picturesApi.getModelPictures(userPictureId = userPictureId)
                 _modelPictures.value = if (r.isSuccessful)
                     Resource.Success(r.body() ?: emptyList())
                 else Resource.Error("Failed to load model pictures")

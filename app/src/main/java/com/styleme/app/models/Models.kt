@@ -21,7 +21,8 @@ data class Picture(
     val height: Int?,
     val width: Int?,
     @SerializedName("date_created") val dateCreated: String?,
-    @SerializedName("date_updated") val dateUpdated: String?
+    @SerializedName("date_updated") val dateUpdated: String?,
+    val gender: String? = null
 ) : Parcelable
 
 data class UploadPictureResponse(

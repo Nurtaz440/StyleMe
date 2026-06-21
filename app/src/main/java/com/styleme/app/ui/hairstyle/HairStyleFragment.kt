@@ -42,7 +42,22 @@ class HairStyleFragment : Fragment() {
         binding.rvModels.layoutManager = GridLayoutManager(requireContext(), 2)
         binding.rvModels.adapter = adapter
 
-        viewModel.loadModelPictures()
+        val prefs = requireContext()
+            .getSharedPreferences("StyleMePrefs", android.content.Context.MODE_PRIVATE)
+        val userPictureId = homeViewModel.originalPictureId.value?.takeIf { it > 0 }
+            ?: prefs.getInt("original_picture_id", 0).takeIf { it > 0 }
+
+        viewModel.loadModelPictures(userPictureId)
+
+        homeViewModel.detectedGender.observe(viewLifecycleOwner) { gender ->
+            if (gender.isNullOrBlank() || gender == "unisex") {
+                binding.tvGender.gone()
+            } else {
+                val label = gender.replaceFirstChar { it.uppercase() }
+                binding.tvGender.text = "Detected: $label — showing $label styles"
+                binding.tvGender.visible()
+            }
+        }
 
         viewModel.modelPictures.observe(viewLifecycleOwner) { state ->
             when (state) {
