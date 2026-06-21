@@ -268,6 +268,16 @@ def composite_wig(user_photo_url: str, wig_filename: str,
     else:
         wig_raw = wig_raw.convert("RGBA")
 
+    # Downscale oversized source assets before any per-pixel work below.
+    # Some wig PNGs (e.g. hair_bangs_black.png) ship at multi-thousand-pixel
+    # resolution; the per-pixel alpha scan + erosion filter on the full-size
+    # image is slow/memory-heavy enough to time out the request (502 on
+    # Render). The final overlay is resized down to a few hundred px anyway,
+    # so capping here costs no visible quality.
+    MAX_WIG_DIM = 1200
+    if max(wig_raw.size) > MAX_WIG_DIM:
+        wig_raw.thumbnail((MAX_WIG_DIM, MAX_WIG_DIM), Image.LANCZOS)
+
     # Strip white background if the wig has no meaningful transparency already
     alpha_vals = list(wig_raw.split()[3].getdata())
     has_transparency = any(a < 200 for a in alpha_vals)
